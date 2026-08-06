@@ -51,6 +51,8 @@ test/
 - Android SDK 36.1.0 已安装于 `D:\Android\Sdk`（Android 36 平台 + build-tools）
 - release APK 已打包：`build/app/outputs/flutter-apk/app-release.apk`（约 48.7MB，
   默认使用 debug 签名，可直接安装到手机）
+- 2026-08-07 修复发布版网络权限（AndroidManifest 增加 INTERNET），已重新打包；
+  应用名改为「模型余额」
 
 ## 构建源配置（镜像）
 
