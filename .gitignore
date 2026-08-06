@@ -1,0 +1,17 @@
+# Flutter / Dart 构建产物
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+
+# IDE
+.idea/
+.vscode/
+
+# 敏感信息
+.env
+.env.*
+
+# 其他
+*.log
