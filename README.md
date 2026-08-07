@@ -7,15 +7,18 @@
 - **余额实时查询**：DeepSeek 官方（`user/balance`）、OpenAI 官方
   （`credit_grants`）、OpenAI 兼容中转渠道（one-api / new-api 类，
   `api/user/status`，quota 自动换算）
-- **自动刷新**：默认每 30 秒刷新一次，支持下拉与按钮手动刷新
+- **自动刷新**：默认每 30 秒刷新一次，间隔可在设置页调整（15/30/60/120 秒，
+  持久化）；App 进入后台自动暂停，回前台立即刷新；支持下拉与按钮手动刷新
+- **余额趋势折线图**：首页展示各账户近 30 天余额变化，多账户可切换
 - **Token 用量记录**：手动记录输入（命中缓存 / 未命中缓存）与输出 Token 及费用，
   本地汇总统计；「用量」页提供按天柱状图（金额 / Token 可切换）与
-  Token 构成扇形图（输入命中缓存 / 未命中缓存 / 输出）
+  Token 构成扇形图（输入命中缓存 / 未命中缓存 / 输出）；记录可编辑 / 删除
 - **余额快照**：每次成功查询自动写入本地 SQLite，与桌面版表结构一致
 - **账户管理**：在 App 内添加 / 编辑 / 删除账户，API Key 保存在系统安全存储
   （Android Keystore / iOS Keychain），不写进明文文件、不上传服务器
 - **应用内更新**：启动时自动检查、设置页可手动检查 GitHub Release 新版本，
-  一键下载并唤起系统安装器，无需手动重新下载 APK
+  一键下载（进度显示 + SHA256 校验）并唤起系统安装器，安装后自动清理临时包；
+  更新源可配置（GitHub Releases 或自建 version.json）
 
 
 ## 目录结构
@@ -36,6 +39,10 @@ lib/
 └── utils/formats.dart        # 金额与时间格式化
 test/
 ├── parsers_test.dart         # 三家余额响应解析单测
+├── usage_stats_test.dart     # 用量统计聚合测试
+├── update_service_test.dart  # 更新源解析 / 版本比较 / SHA256 测试
+├── balance_state_test.dart   # 状态层测试（按币种汇总 / 刷新间隔）
+├── formats_test.dart         # 格式化工具测试
 └── widget_test.dart          # 首页冒烟测试
 ```
 
@@ -45,29 +52,24 @@ test/
 - Android 构建：Android Studio / Android SDK（最低 API 23）
 - iOS 构建：macOS + Xcode
 
-## 当前状态（2026-08-07）
+## 当前状态
 
-- Flutter 3.44.8（Dart 3.12.2）已安装于 `D:\flutter\flutter`，使用中国镜像
-  （`pub.flutter-io.cn` / `storage.flutter-io.cn`）完成初始化
-- `flutter create` 已生成 android / ios 平台工程
-- `flutter analyze` 零问题；`flutter test` 7 个测试全部通过
-- Android SDK 36.1.0 已安装于 `D:\Android\Sdk`（Android 36 平台 + build-tools）
-- release APK 已打包：`build/app/outputs/flutter-apk/app-release.apk`（约 48.7MB，
-  默认使用 debug 签名，可直接安装到手机）
-- 2026-08-07 修复发布版网络权限（AndroidManifest 增加 INTERNET），已重新打包；
-  应用名改为「模型余额」
-- 2026-08-07 新增用量图表：每日柱状图（金额 / Token 切换）+ Token 构成扇形图，
-  输入 Token 拆分命中 / 未命中缓存；已重新打包
-- 2026-08-07 新增应用内更新（v0.2.0）：检查 GitHub Release → 下载 APK → 系统安装器安装
-- 2026-08-07 更新提示增强（v0.2.1）：弹窗显示更新功能说明与更新包大小，下载进度显示已下载/总量
-- 2026-08-07 稳定性优化（v0.2.2）：修复更新下载流程 bug（进度实时显示）、APK 下载后 SHA256 校验、
-  正式签名（keystore）、按币种汇总余额、用量记录可编辑/删除、后台自动暂停刷新
-- 2026-08-07 v0.2.3：更新安装完成后自动清理下载的临时 APK，不残留占用空间
-- 2026-08-07 v0.2.4：启动时兜底清理残留临时包；更新源支持简单 version.json 格式
-  （version/url/size/notes/sha256，缓解 GitHub API 限流）；保存更新源异常处理与地址格式校验
-- 2026-08-07 v0.2.5：新增余额趋势折线图（近 30 天，多账户可切换）；余额自动刷新间隔可调
-  （15/30/60/120 秒，持久化）
-- 2026-08-07 v0.2.6：修复更新检查/弹窗无互斥导致的重复弹窗问题（连续触发只弹一次）
+- 最新版本：**v0.2.6**（已发布 GitHub Release，正式签名 APK + SHA256 校验文件）
+- `flutter analyze` 零问题；`flutter test` 25 个测试全部通过
+- APK 产物：`build/app/outputs/flutter-apk/app-release.apk`（约 50.4MB，正式签名）
+- 开发环境：Flutter 3.44.8 / Dart 3.12.2 / Android SDK 36.1.0，构建走中国镜像
+
+## 版本历史
+
+| 版本 | 主要内容 |
+| --- | --- |
+| v0.2.0 | 应用内更新：检查 GitHub Release → 下载 → 系统安装器安装 |
+| v0.2.1 | 更新提示显示更新说明与更新包大小、下载进度 |
+| v0.2.2 | 稳定性优化：更新下载流程修复、SHA256 校验、正式签名、按币种汇总、用量记录编辑/删除、后台暂停刷新 |
+| v0.2.3 | 更新安装完成后自动清理临时 APK |
+| v0.2.4 | 启动兜底清理临时包；更新源兼容 version.json；保存异常处理与格式校验 |
+| v0.2.5 | 余额趋势折线图；自动刷新间隔可调（持久化） |
+| v0.2.6 | 修复重复弹出更新窗口（检查互斥） |
 
 ## 正式签名说明
 
@@ -81,11 +83,13 @@ test/
 1. 修改 `pubspec.yaml` 的 `version`（如 0.2.1+3），功能/修复说明写进 commit。
 2. 本地验证：`flutter analyze` + `flutter test`，然后 `flutter build apk`。
 3. 在 GitHub 仓库创建 Release：tag 用 `vX.Y.Z`（与 pubspec version 一致），
-   上传 `app-release.apk` 作为资产，更新说明写在 Release 描述里。
+   上传 `app-release.apk` 与 `app-release.apk.sha256` 作为资产，
+   更新说明写在 Release 描述里。
 4. 用户打开 App 会自动检测到新版本并提示更新；也可在「设置 → 版本更新」手动检查。
 
 更新源默认为 GitHub Releases API（见 `lib/services/update_service.dart` 的
-`updateSourceUrl`），也可换成自建服务器返回相同 JSON 结构。
+`updateSourceUrl`），可在「设置 → 更新源地址」修改；也可换成自建服务器返回
+`{"version","url","size","notes","sha256"}` 结构的 version.json。
 
 ## 构建源配置（镜像）
 
@@ -131,9 +135,10 @@ flutter build apk    # 打 Android 安装包
 
 ## 下一步计划
 
-- 打包并签名 Android APK，实机验证
-- 余额趋势图与低余额提醒
+- 低余额告警
+- Token 用量自动采集（中转渠道用量接口，DeepSeek 官方无公开用量接口）
 - 与桌面版数据同步（可选，需后端）
+- iOS 构建验证（需 macOS 环境）
 
 ## 相关项目（备注）
 
