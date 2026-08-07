@@ -34,6 +34,15 @@ class _FakeStorage extends StorageService {
 
   @override
   Future<int> addSnapshot(Balance balance) async => 1;
+
+  @override
+  Future<List<BalanceSnapshot>> listSnapshots({
+    String? account,
+    DateTime? since,
+    int? limit,
+  }) async {
+    return <BalanceSnapshot>[];
+  }
 }
 
 void main() {
@@ -86,5 +95,16 @@ void main() {
     final byCurrency = state.totalByCurrency;
     expect(byCurrency['CNY'], 2.0);
     expect(byCurrency['USD'], 2.0);
+  });
+
+  test('setRefreshInterval 设置并限制最小值', () async {
+    final state = BalanceState(
+      configStore: _FakeConfigStore(),
+      storage: _FakeStorage(),
+    );
+    await state.setRefreshInterval(60);
+    expect(state.refreshSeconds, 60);
+    await state.setRefreshInterval(2);
+    expect(state.refreshSeconds, 5);
   });
 }

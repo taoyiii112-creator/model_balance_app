@@ -34,6 +34,15 @@ class _FakeStorage extends StorageService {
 
   @override
   Future<int> addSnapshot(Balance balance) async => 1;
+
+  @override
+  Future<List<BalanceSnapshot>> listSnapshots({
+    String? account,
+    DateTime? since,
+    int? limit,
+  }) async {
+    return <BalanceSnapshot>[];
+  }
 }
 
 void main() {
@@ -47,6 +56,7 @@ void main() {
       configStore: _FakeConfigStore(<Account>[account]),
       storage: _FakeStorage(),
     );
+    state.accounts = <Account>[account];
     state.results = <AccountResult>[
       AccountResult(
         account: account,

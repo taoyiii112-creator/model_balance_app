@@ -8,6 +8,7 @@ import '../services/update_service.dart';
 import '../state/balance_state.dart';
 import '../utils/formats.dart';
 import '../widgets/account_card.dart';
+import '../widgets/balance_trend_chart.dart';
 
 /// 余额首页：汇总 + 账户余额列表 + 30 秒自动刷新。
 class HomeScreen extends StatefulWidget {
@@ -18,6 +19,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  String? _trendAccount;
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +102,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           children: <Widget>[
             _buildSummary(state),
             const SizedBox(height: 12),
+            _buildTrendCard(state),
+            const SizedBox(height: 12),
             if (state.loading) const LinearProgressIndicator(),
             if (state.lastError != null) _buildErrorBanner(state.lastError!),
             if (state.accounts.isEmpty)
@@ -111,6 +116,49 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
             const SizedBox(height: 8),
             _buildUsageSummary(state),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrendCard(BalanceState state) {
+    final theme = Theme.of(context);
+    final accounts = state.accounts;
+    final trendAccount =
+        _trendAccount ?? (accounts.isEmpty ? '' : accounts.first.name);
+    final snapshots =
+        state.snapshotsByAccount[trendAccount] ?? const <BalanceSnapshot>[];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Text('余额趋势（近 30 天）', style: theme.textTheme.titleMedium),
+                if (accounts.length > 1)
+                  DropdownButton<String>(
+                    value: trendAccount,
+                    items: <DropdownMenuItem<String>>[
+                      for (final account in accounts)
+                        DropdownMenuItem<String>(
+                          value: account.name,
+                          child: Text(account.name),
+                        ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _trendAccount = v);
+                      }
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            BalanceTrendChart(snapshots: snapshots),
           ],
         ),
       ),

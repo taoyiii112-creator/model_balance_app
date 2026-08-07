@@ -48,3 +48,36 @@ class AccountResult {
 
   bool get ok => error == null && balance != null;
 }
+
+/// 余额快照（每次成功查询自动写入本地库），用于趋势图。
+class BalanceSnapshot {
+  const BalanceSnapshot({
+    required this.account,
+    required this.provider,
+    required this.currency,
+    this.available,
+    this.total,
+    this.used,
+    required this.createdAt,
+  });
+
+  final String account;
+  final String provider;
+  final String currency;
+  final double? available;
+  final double? total;
+  final double? used;
+  final DateTime createdAt;
+
+  factory BalanceSnapshot.fromDbMap(Map<String, Object?> map) {
+    return BalanceSnapshot(
+      account: map['account'] as String,
+      provider: map['provider'] as String,
+      currency: (map['currency'] as String?) ?? 'CNY',
+      available: (map['available'] as num?)?.toDouble(),
+      total: (map['total'] as num?)?.toDouble(),
+      used: (map['used'] as num?)?.toDouble(),
+      createdAt: DateTime.parse(map['created_at'] as String),
+    );
+  }
+}

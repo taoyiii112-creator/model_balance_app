@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/account.dart';
 import '../models/balance.dart';
@@ -15,32 +18,89 @@ class BalanceState extends ChangeNotifier {
       : configStore = configStore ?? SecureConfigStore(),
         storage = storage ?? StorageService();
 
-  static const Duration autoRefreshInterval = Duration(seconds: 30);
-
   final SecureConfigStore configStore;
   final StorageService storage;
 
   List<Account> accounts = <Account>[];
   List<AccountResult> results = <AccountResult>[];
   List<UsageRecord> usageRecords = <UsageRecord>[];
+  Map<String, List<BalanceSnapshot>> snapshotsByAccount =
+      <String, List<BalanceSnapshot>>{};
   UsageTotals usageTotals = const UsageTotals();
   bool loading = false;
   String? lastError;
   DateTime? lastRefreshed;
 
   Timer? _autoRefreshTimer;
+  int _refreshSeconds = 30;
+
+  /// 自动刷新间隔（秒），默认 30。
+  int get refreshSeconds => _refreshSeconds;
+
+  Duration get refreshInterval => Duration(seconds: _refreshSeconds);
 
   Future<void> load() async {
+    await _loadSettings();
     accounts = await configStore.loadAccounts();
     usageRecords = await storage.listUsageRecords();
     usageTotals = UsageTotals.sum(usageRecords);
+    await _loadSnapshots();
     notifyListeners();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(
+        '${dir.path}${Platform.pathSeparator}settings.json',
+      );
+      if (await file.exists()) {
+        final data = jsonDecode(await file.readAsString());
+        final seconds = data is Map ? data['refresh_seconds'] : null;
+        if (seconds is num && seconds >= 5) {
+          _refreshSeconds = seconds.toInt();
+        }
+      }
+    } catch (_) {
+      // 读取失败用默认值
+    }
+  }
+
+  /// 设置自动刷新间隔并持久化。
+  Future<void> setRefreshInterval(int seconds) async {
+    _refreshSeconds = seconds < 5 ? 5 : seconds;
+    _restartAutoRefresh();
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(
+        '${dir.path}${Platform.pathSeparator}settings.json',
+      );
+      await file.writeAsString(
+        jsonEncode(<String, dynamic>{'refresh_seconds': _refreshSeconds}),
+      );
+    } catch (_) {
+      // 持久化失败不影响本次设置
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadSnapshots() async {
+    final since = DateTime.now().subtract(const Duration(days: 30));
+    final map = <String, List<BalanceSnapshot>>{};
+    for (final account in accounts) {
+      map[account.name] = await storage.listSnapshots(
+        account: account.name,
+        since: since,
+        limit: 500,
+      );
+    }
+    snapshotsByAccount = map;
   }
 
   /// 开始每 30 秒自动刷新（幂等）。
   void startAutoRefresh() {
     _autoRefreshTimer ??= Timer.periodic(
-      autoRefreshInterval,
+      refreshInterval,
       (_) => refresh(),
     );
   }
@@ -54,7 +114,15 @@ class BalanceState extends ChangeNotifier {
   /// 恢复自动刷新。
   void resumeAutoRefresh() {
     _autoRefreshTimer ??= Timer.periodic(
-      autoRefreshInterval,
+      refreshInterval,
+      (_) => refresh(),
+    );
+  }
+
+  void _restartAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(
+      refreshInterval,
       (_) => refresh(),
     );
   }
@@ -70,6 +138,7 @@ class BalanceState extends ChangeNotifier {
           await storage.addSnapshot(r.balance!);
         }
       }
+      await _loadSnapshots();
       lastRefreshed = DateTime.now();
     } catch (e) {
       lastError = '$e';

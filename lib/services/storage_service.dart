@@ -138,6 +138,33 @@ class StorageService {
     });
   }
 
+  /// 查询余额快照（按时间升序，便于画趋势线）。
+  Future<List<BalanceSnapshot>> listSnapshots({
+    String? account,
+    DateTime? since,
+    int? limit,
+  }) async {
+    final db = await _database;
+    final where = <String>[];
+    final args = <Object?>[];
+    if (account != null && account.isNotEmpty) {
+      where.add('account = ?');
+      args.add(account);
+    }
+    if (since != null) {
+      where.add('created_at >= ?');
+      args.add(since.toIso8601String());
+    }
+    final rows = await db.query(
+      'balance_snapshots',
+      where: where.isEmpty ? null : where.join(' AND '),
+      whereArgs: args.isEmpty ? null : args,
+      orderBy: 'created_at ASC',
+      limit: limit,
+    );
+    return rows.map(BalanceSnapshot.fromDbMap).toList();
+  }
+
   Future<void> close() async {
     await _db?.close();
     _db = null;

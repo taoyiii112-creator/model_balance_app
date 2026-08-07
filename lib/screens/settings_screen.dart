@@ -136,6 +136,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final state = context.watch<BalanceState>();
+    final refreshOptions = <int>{15, 30, 60, 120, state.refreshSeconds}.toList()
+      ..sort();
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -194,6 +196,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               trailing: const Icon(Icons.edit_outlined),
               onTap: _editUpdateSource,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.timer_outlined),
+              title: const Text('余额自动刷新间隔'),
+              trailing: DropdownButton<int>(
+                value: state.refreshSeconds,
+                items: refreshOptions
+                    .map(
+                      (s) => DropdownMenuItem<int>(
+                        value: s,
+                        child: Text('$s 秒'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    context.read<BalanceState>().setRefreshInterval(v);
+                  }
+                },
+              ),
             ),
           ),
           const SizedBox(height: 12),
