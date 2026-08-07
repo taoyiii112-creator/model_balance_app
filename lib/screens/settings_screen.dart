@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/account.dart';
 import '../services/update_flow.dart';
+import '../services/update_service.dart';
 import '../state/balance_state.dart';
 import '../utils/formats.dart';
 import 'account_edit_screen.dart';
@@ -18,11 +19,53 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _currentVersion = '0.0.0';
+  String _updateSource = '';
 
   @override
   void initState() {
     super.initState();
     _loadVersion();
+    _loadUpdateSource();
+  }
+
+  Future<void> _loadUpdateSource() async {
+    await UpdateService.instance.loadUpdateSource();
+    if (mounted) {
+      setState(() => _updateSource = UpdateService.instance.updateSourceUrl);
+    }
+  }
+
+  Future<void> _editUpdateSource() async {
+    final controller = TextEditingController(
+      text: UpdateService.instance.updateSourceUrl,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('更新源地址'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: '留空恢复默认 GitHub Releases',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && mounted) {
+      await UpdateService.instance.setUpdateSource(result);
+      setState(() => _updateSource = UpdateService.instance.updateSourceUrl);
+    }
   }
 
   Future<void> _loadVersion() async {
@@ -114,12 +157,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Card(
+          Card(
             child: ListTile(
-              leading: Icon(Icons.info_outline),
-              title: Text('关于'),
+              leading: const Icon(Icons.link),
+              title: const Text('更新源地址'),
               subtitle: Text(
-                '模型余额手机版 v0.2.1\n'
+                _updateSource.isEmpty ? '加载中…' : _updateSource,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.edit_outlined),
+              onTap: _editUpdateSource,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('关于'),
+              subtitle: Text(
+                '模型余额手机版 v$_currentVersion\n'
                 '与桌面版共享同一套余额查询逻辑：'
                 'DeepSeek / OpenAI / 中转渠道',
               ),

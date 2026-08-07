@@ -17,10 +17,10 @@ Future<void> promptForUpdate(
   AppUpdateInfo? info;
   try {
     info = await UpdateService.instance.checkForUpdate();
-  } catch (_) {
+  } catch (e) {
     if (manual) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('检查更新失败，请检查网络')),
+        SnackBar(content: Text('检查更新失败：$e')),
       );
     }
     return;

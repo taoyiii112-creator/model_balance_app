@@ -28,10 +28,46 @@ class UpdateService {
 
   static final UpdateService instance = UpdateService._();
 
-  /// 更新源：GitHub Releases API。返回 JSON 含 tag_name / body / assets[].apk。
-  /// 如需自建更新源，可改成任意返回相同结构的地址。
-  static const String updateSourceUrl =
+  /// 默认更新源：GitHub Releases API。返回 JSON 含 tag_name / body / assets[].apk。
+  static const String defaultUpdateSourceUrl =
       'https://api.github.com/repos/taoyiii112-creator/model_balance_app/releases/latest';
+
+  String _updateSourceUrl = defaultUpdateSourceUrl;
+
+  /// 当前生效的更新源地址（可在设置中修改，持久化到应用私有目录）。
+  String get updateSourceUrl => _updateSourceUrl;
+
+  /// 读取自定义更新源；不存在时用默认 GitHub。
+  Future<void> loadUpdateSource() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(
+        '${dir.path}${Platform.pathSeparator}update_source.json',
+      );
+      if (await file.exists()) {
+        final data = jsonDecode(await file.readAsString());
+        final url = data is Map ? data['url'] : null;
+        if (url is String && url.trim().isNotEmpty) {
+          _updateSourceUrl = url.trim();
+        }
+      }
+    } catch (_) {
+      // 读取失败时保留当前地址
+    }
+  }
+
+  /// 设置更新源地址；传空字符串恢复默认 GitHub Releases。
+  Future<void> setUpdateSource(String url) async {
+    final trimmed = url.trim();
+    _updateSourceUrl = trimmed.isEmpty ? defaultUpdateSourceUrl : trimmed;
+    final dir = await getApplicationSupportDirectory();
+    final file = File(
+      '${dir.path}${Platform.pathSeparator}update_source.json',
+    );
+    await file.writeAsString(
+      jsonEncode(<String, String>{'url': _updateSourceUrl}),
+    );
+  }
 
   static const MethodChannel _installChannel =
       MethodChannel('model_balance/install');
@@ -99,10 +135,11 @@ class UpdateService {
 
   /// 查询最新版本；仓库还没有 Release 时返回 null。
   Future<AppUpdateInfo?> checkForUpdate() async {
+    await loadUpdateSource();
     final http.Response resp;
     try {
       resp = await http.get(
-        Uri.parse(updateSourceUrl),
+        Uri.parse(_updateSourceUrl),
         headers: const <String, String>{
           'Accept': 'application/vnd.github+json',
         },
