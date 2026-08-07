@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/formats.dart';
 import 'update_service.dart';
 
 /// 检查更新并引导下载安装。
@@ -43,8 +44,22 @@ Future<void> promptForUpdate(
     builder: (dialogContext) => AlertDialog(
       title: Text('发现新版本 v${info!.version}'),
       content: SingleChildScrollView(
-        child: Text(
-          info.notes.isEmpty ? '有新版本可用，是否立即下载更新？' : info.notes,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              info.notes.isEmpty ? '有新版本可用，是否立即下载更新？' : info.notes,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: <Widget>[
+                const Icon(Icons.sd_storage_outlined, size: 16),
+                const SizedBox(width: 4),
+                Text('更新包大小：${formatBytes(info.sizeBytes)}'),
+              ],
+            ),
+          ],
         ),
       ),
       actions: <Widget>[
@@ -67,6 +82,7 @@ Future<void> promptForUpdate(
   final status = ValueNotifier<String>('准备下载…');
   final canInstall = ValueNotifier<bool>(false);
   final failed = ValueNotifier<bool>(false);
+  final totalBytes = info.sizeBytes;
 
   final result = await showDialog<String>(
     context: context,
@@ -119,7 +135,10 @@ Future<void> promptForUpdate(
       info.downloadUrl,
       onProgress: (p) {
         progress.value = p;
-        status.value = '${(p * 100).toStringAsFixed(0)}%';
+        status.value = totalBytes > 0
+            ? '已下载 ${formatBytes((totalBytes * p).round())} / '
+                '${formatBytes(totalBytes)}（${(p * 100).toStringAsFixed(0)}%）'
+            : '${(p * 100).toStringAsFixed(0)}%';
       },
     );
     status.value = '下载完成，请点击安装';

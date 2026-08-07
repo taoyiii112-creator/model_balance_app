@@ -28,6 +28,7 @@ void main() {
           <String, dynamic>{
             'name': 'app-release.apk',
             'browser_download_url': 'https://example.com/app-release.apk',
+            'size': 52200000,
           },
         ],
       });
@@ -35,6 +36,7 @@ void main() {
       expect(info!.version, '0.2.0');
       expect(info.downloadUrl, 'https://example.com/app-release.apk');
       expect(info.notes, '修复若干问题');
+      expect(info.sizeBytes, 52200000);
     });
 
     test('没有 APK 资产时返回 null', () {

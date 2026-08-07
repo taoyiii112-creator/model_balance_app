@@ -11,11 +11,15 @@ class AppUpdateInfo {
     required this.version,
     required this.downloadUrl,
     this.notes = '',
+    this.sizeBytes = 0,
   });
 
   final String version;
   final String downloadUrl;
   final String notes;
+
+  /// 更新包大小（字节），未知为 0。
+  final int sizeBytes;
 }
 
 /// 应用内更新：检查 GitHub Release → 下载 APK → 唤起系统安装器。
@@ -47,6 +51,7 @@ class UpdateService {
     }
     final version = tag.startsWith('v') ? tag.substring(1) : tag;
     String? apkUrl;
+    var sizeBytes = 0;
     final assets = json['assets'];
     if (assets is List) {
       for (final a in assets) {
@@ -54,6 +59,7 @@ class UpdateService {
           final name = ((a['name'] as String?) ?? '').toLowerCase();
           if (name.endsWith('.apk')) {
             apkUrl = a['browser_download_url'] as String?;
+            sizeBytes = (a['size'] as num?)?.toInt() ?? 0;
             break;
           }
         }
@@ -66,6 +72,7 @@ class UpdateService {
       version: version,
       downloadUrl: apkUrl,
       notes: (json['body'] as String?) ?? '',
+      sizeBytes: sizeBytes,
     );
   }
 

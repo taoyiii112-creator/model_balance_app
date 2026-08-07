@@ -119,7 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: Icon(Icons.info_outline),
               title: Text('关于'),
               subtitle: Text(
-                '模型余额手机版 v0.2.0\n'
+                '模型余额手机版 v0.2.1\n'
                 '与桌面版共享同一套余额查询逻辑：'
                 'DeepSeek / OpenAI / 中转渠道',
               ),
