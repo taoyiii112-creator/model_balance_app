@@ -21,7 +21,8 @@ class _UsageRecordDialogState extends State<UsageRecordDialog> {
       widget.accounts.map((a) => a.name).toList();
   late String _account = _accountNames.first;
   final TextEditingController _modelController = TextEditingController();
-  final TextEditingController _promptController = TextEditingController();
+  final TextEditingController _cacheHitController = TextEditingController();
+  final TextEditingController _cacheMissController = TextEditingController();
   final TextEditingController _completionController = TextEditingController();
   final TextEditingController _costController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
@@ -30,7 +31,8 @@ class _UsageRecordDialogState extends State<UsageRecordDialog> {
   @override
   void dispose() {
     _modelController.dispose();
-    _promptController.dispose();
+    _cacheHitController.dispose();
+    _cacheMissController.dispose();
     _completionController.dispose();
     _costController.dispose();
     _noteController.dispose();
@@ -45,7 +47,9 @@ class _UsageRecordDialogState extends State<UsageRecordDialog> {
     final record = UsageRecord(
       account: _account,
       model: _modelController.text.trim(),
-      promptTokens: int.tryParse(_promptController.text.trim()) ?? 0,
+      promptCacheHitTokens: int.tryParse(_cacheHitController.text.trim()) ?? 0,
+      promptCacheMissTokens:
+          int.tryParse(_cacheMissController.text.trim()) ?? 0,
       completionTokens: int.tryParse(_completionController.text.trim()) ?? 0,
       cost: double.tryParse(_costController.text.trim()),
       note: _noteController.text.trim(),
@@ -93,14 +97,22 @@ class _UsageRecordDialogState extends State<UsageRecordDialog> {
                     (v == null || v.trim().isEmpty) ? '请输入模型名称' : null,
               ),
               TextFormField(
-                controller: _promptController,
-                decoration: const InputDecoration(labelText: 'Prompt Token'),
+                controller: _cacheHitController,
+                decoration: const InputDecoration(
+                  labelText: '输入 Token（命中缓存）',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextFormField(
+                controller: _cacheMissController,
+                decoration: const InputDecoration(
+                  labelText: '输入 Token（未命中缓存）',
+                ),
                 keyboardType: TextInputType.number,
               ),
               TextFormField(
                 controller: _completionController,
-                decoration:
-                    const InputDecoration(labelText: 'Completion Token'),
+                decoration: const InputDecoration(labelText: '输出 Token'),
                 keyboardType: TextInputType.number,
               ),
               TextFormField(

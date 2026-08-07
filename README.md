@@ -8,8 +8,9 @@
   （`credit_grants`）、OpenAI 兼容中转渠道（one-api / new-api 类，
   `api/user/status`，quota 自动换算）
 - **自动刷新**：默认每 30 秒刷新一次，支持下拉与按钮手动刷新
-- **Token 用量记录**：手动记录每次调用的 Prompt / Completion Token 与费用，
-  本地汇总统计
+- **Token 用量记录**：手动记录输入（命中缓存 / 未命中缓存）与输出 Token 及费用，
+  本地汇总统计；「用量」页提供按天柱状图（金额 / Token 可切换）与
+  Token 构成扇形图（输入命中缓存 / 未命中缓存 / 输出）
 - **余额快照**：每次成功查询自动写入本地 SQLite，与桌面版表结构一致
 - **账户管理**：在 App 内添加 / 编辑 / 删除账户，API Key 保存在系统安全存储
   （Android Keystore / iOS Keychain），不写进明文文件、不上传服务器
@@ -53,6 +54,8 @@ test/
   默认使用 debug 签名，可直接安装到手机）
 - 2026-08-07 修复发布版网络权限（AndroidManifest 增加 INTERNET），已重新打包；
   应用名改为「模型余额」
+- 2026-08-07 新增用量图表：每日柱状图（金额 / Token 切换）+ Token 构成扇形图，
+  输入 Token 拆分命中 / 未命中缓存；已重新打包
 
 ## 构建源配置（镜像）
 

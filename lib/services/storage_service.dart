@@ -7,7 +7,7 @@ import '../models/usage_record.dart';
 /// 本地 SQLite 存储：Token 用量记录 + 余额快照，表结构与桌面版一致。
 class StorageService {
   static const String _dbName = 'model_balance.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
 
   Database? _db;
 
@@ -20,6 +20,7 @@ class StorageService {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
     return _db!;
   }
@@ -32,6 +33,8 @@ class StorageService {
         model TEXT NOT NULL,
         created_at TEXT NOT NULL,
         prompt_tokens INTEGER NOT NULL DEFAULT 0,
+        prompt_cache_hit_tokens INTEGER NOT NULL DEFAULT 0,
+        prompt_cache_miss_tokens INTEGER NOT NULL DEFAULT 0,
         completion_tokens INTEGER NOT NULL DEFAULT 0,
         total_tokens INTEGER NOT NULL DEFAULT 0,
         cost REAL,
@@ -50,6 +53,24 @@ class StorageService {
         created_at TEXT NOT NULL
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE usage_records '
+        'ADD COLUMN prompt_cache_hit_tokens INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE usage_records '
+        'ADD COLUMN prompt_cache_miss_tokens INTEGER NOT NULL DEFAULT 0',
+      );
+      // 旧记录无缓存拆分：把原 prompt_tokens 视为未命中缓存。
+      await db.execute(
+        'UPDATE usage_records SET prompt_cache_miss_tokens = prompt_tokens '
+        'WHERE prompt_tokens > 0 AND prompt_cache_miss_tokens = 0',
+      );
+    }
   }
 
   Future<int> addUsageRecord(UsageRecord record) async {

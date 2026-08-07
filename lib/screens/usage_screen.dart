@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/usage_record.dart';
 import '../state/balance_state.dart';
 import '../utils/formats.dart';
+import '../utils/usage_stats.dart';
+import '../widgets/daily_usage_chart.dart';
+import '../widgets/token_breakdown_chart.dart';
 import '../widgets/usage_record_dialog.dart';
 import '../widgets/usage_record_tile.dart';
 
@@ -35,17 +38,51 @@ class UsageScreen extends StatelessWidget {
         icon: const Icon(Icons.add),
         label: const Text('记录用量'),
       ),
-      body: state.usageRecords.isEmpty
-          ? const Center(child: Text('暂无用量记录，点击右下角添加'))
-          : ListView(
-              padding: const EdgeInsets.all(12),
-              children: <Widget>[
-                _TotalsCard(totals: state.usageTotals),
-                const SizedBox(height: 12),
-                for (final record in state.usageRecords)
-                  UsageRecordTile(record: record),
-              ],
+      body: ListView(
+        padding: const EdgeInsets.all(12),
+        children: <Widget>[
+          _TotalsCard(totals: state.usageTotals),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Token 构成',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  TokenBreakdownChart(
+                    breakdown: TokenBreakdown.sum(state.usageRecords),
+                  ),
+                ],
+              ),
             ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: DailyUsageChart(
+                daily: aggregateDaily(state.usageRecords),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (state.usageRecords.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: Text('暂无用量记录，点击右下角添加')),
+              ),
+            )
+          else
+            for (final record in state.usageRecords)
+              UsageRecordTile(record: record),
+        ],
+      ),
     );
   }
 }
@@ -71,8 +108,9 @@ class _TotalsCard extends StatelessWidget {
               runSpacing: 6,
               children: <Widget>[
                 _item('记录', '${totals.records} 条'),
-                _item('Prompt', '${totals.promptTokens}'),
-                _item('Completion', '${totals.completionTokens}'),
+                _item('输入·命中缓存', '${totals.promptCacheHitTokens}'),
+                _item('输入·未命中缓存', '${totals.promptCacheMissTokens}'),
+                _item('输出', '${totals.completionTokens}'),
                 _item('总 Token', '${totals.totalTokens}'),
                 _item('费用', formatMoney(totals.cost)),
               ],
