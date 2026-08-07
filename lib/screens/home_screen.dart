@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../models/balance.dart';
+import '../services/update_flow.dart';
+import '../services/update_service.dart';
 import '../state/balance_state.dart';
 import '../utils/formats.dart';
 import '../widgets/account_card.dart';
@@ -21,6 +24,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final state = context.read<BalanceState>();
     state.load();
     state.startAutoRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!UpdateService.instance.checkedThisSession) {
+        UpdateService.instance.markChecked();
+        _autoCheckUpdate();
+      }
+    });
+  }
+
+  /// 启动时静默检查一次更新，发现新版本才提示。
+  Future<void> _autoCheckUpdate() async {
+    if (!mounted) {
+      return;
+    }
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) {
+      return;
+    }
+    await promptForUpdate(
+      context,
+      currentVersion: info.version,
+      manual: false,
+    );
   }
 
   Future<void> _refresh() {

@@ -14,6 +14,8 @@
 - **余额快照**：每次成功查询自动写入本地 SQLite，与桌面版表结构一致
 - **账户管理**：在 App 内添加 / 编辑 / 删除账户，API Key 保存在系统安全存储
   （Android Keystore / iOS Keychain），不写进明文文件、不上传服务器
+- **应用内更新**：启动时自动检查、设置页可手动检查 GitHub Release 新版本，
+  一键下载并唤起系统安装器，无需手动重新下载 APK
 
 
 ## 目录结构
@@ -56,6 +58,18 @@ test/
   应用名改为「模型余额」
 - 2026-08-07 新增用量图表：每日柱状图（金额 / Token 切换）+ Token 构成扇形图，
   输入 Token 拆分命中 / 未命中缓存；已重新打包
+- 2026-08-07 新增应用内更新（v0.2.0）：检查 GitHub Release → 下载 APK → 系统安装器安装
+
+## 发布更新流程
+
+1. 修改 `pubspec.yaml` 的 `version`（如 0.2.1+3），功能/修复说明写进 commit。
+2. 本地验证：`flutter analyze` + `flutter test`，然后 `flutter build apk`。
+3. 在 GitHub 仓库创建 Release：tag 用 `vX.Y.Z`（与 pubspec version 一致），
+   上传 `app-release.apk` 作为资产，更新说明写在 Release 描述里。
+4. 用户打开 App 会自动检测到新版本并提示更新；也可在「设置 → 版本更新」手动检查。
+
+更新源默认为 GitHub Releases API（见 `lib/services/update_service.dart` 的
+`updateSourceUrl`），也可换成自建服务器返回相同 JSON 结构。
 
 ## 构建源配置（镜像）
 

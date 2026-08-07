@@ -40,6 +40,11 @@ kotlin {
     }
 }
 
+dependencies {
+    // 应用内更新：FileProvider 提供 APK 安装 URI
+    implementation("androidx.core:core-ktx:1.13.1")
+}
+
 flutter {
     source = "../.."
 }

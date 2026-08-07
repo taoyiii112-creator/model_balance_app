@@ -1,14 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../models/account.dart';
+import '../services/update_flow.dart';
 import '../state/balance_state.dart';
 import '../utils/formats.dart';
 import 'account_edit_screen.dart';
 
-/// 设置页：账户与 API Key 管理。
-class SettingsScreen extends StatelessWidget {
+/// 设置页：账户、API Key 与版本更新管理。
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _currentVersion = '0.0.0';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() => _currentVersion = info.version);
+    }
+  }
 
   Future<void> _openEditor(BuildContext context, {Account? account}) async {
     await Navigator.of(context).push(
@@ -76,12 +98,28 @@ class SettingsScreen extends StatelessWidget {
             label: const Text('添加账户'),
           ),
           const SizedBox(height: 20),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.system_update_alt_outlined),
+              title: const Text('版本更新'),
+              subtitle: Text('当前版本 v$_currentVersion'),
+              trailing: FilledButton.tonal(
+                onPressed: () => promptForUpdate(
+                  context,
+                  currentVersion: _currentVersion,
+                  manual: true,
+                ),
+                child: const Text('检查更新'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           const Card(
             child: ListTile(
               leading: Icon(Icons.info_outline),
               title: Text('关于'),
               subtitle: Text(
-                '模型余额手机版 v0.1.0\n'
+                '模型余额手机版 v0.2.0\n'
                 '与桌面版共享同一套余额查询逻辑：'
                 'DeepSeek / OpenAI / 中转渠道',
               ),
