@@ -56,6 +56,45 @@ void main() {
     });
   });
 
+  group('UpdateService.parseUpdateInfo', () {
+    test('解析简单 version.json 格式', () {
+      final info = UpdateService.parseUpdateInfo(<String, dynamic>{
+        'version': 'v0.3.0',
+        'url': 'https://example.com/app.apk',
+        'size': 52000000,
+        'notes': '新功能',
+        'sha256': 'a1b2c3d4',
+      });
+      expect(info, isNotNull);
+      expect(info!.version, '0.3.0');
+      expect(info.downloadUrl, 'https://example.com/app.apk');
+      expect(info.sizeBytes, 52000000);
+      expect(info.notes, '新功能');
+      expect(info.sha256, 'a1b2c3d4');
+    });
+
+    test('GitHub 格式委托给 parseReleaseJson', () {
+      final info = UpdateService.parseUpdateInfo(<String, dynamic>{
+        'tag_name': 'v0.2.3',
+        'assets': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'app-release.apk',
+            'browser_download_url': 'https://example.com/app.apk',
+          },
+        ],
+      });
+      expect(info, isNotNull);
+      expect(info!.version, '0.2.3');
+    });
+
+    test('缺少关键字段返回 null', () {
+      expect(
+        UpdateService.parseUpdateInfo(<String, dynamic>{'version': '1.0'}),
+        isNull,
+      );
+    });
+  });
+
   group('UpdateService.sha256OfFile', () {
     test('计算文件 SHA256', () async {
       final dir = await Directory.systemTemp.createTemp('mb_update_test');

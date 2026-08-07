@@ -39,15 +39,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final controller = TextEditingController(
       text: UpdateService.instance.updateSourceUrl,
     );
+    final formKey = GlobalKey<FormState>();
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('更新源地址'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: '留空恢复默认 GitHub Releases',
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: '留空恢复默认 GitHub Releases',
+            ),
+            validator: (v) {
+              final text = v?.trim() ?? '';
+              if (text.isNotEmpty &&
+                  !text.startsWith('http://') &&
+                  !text.startsWith('https://')) {
+                return '请输入以 http(s):// 开头的地址';
+              }
+              return null;
+            },
           ),
         ),
         actions: <Widget>[
@@ -56,15 +69,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.of(dialogContext).pop(controller.text.trim());
+              }
+            },
             child: const Text('保存'),
           ),
         ],
       ),
     );
     if (result != null && mounted) {
-      await UpdateService.instance.setUpdateSource(result);
+      try {
+        await UpdateService.instance.setUpdateSource(result);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('保存更新源失败，请重试')),
+          );
+          return;
+        }
+      }
       setState(() => _updateSource = UpdateService.instance.updateSourceUrl);
     }
   }

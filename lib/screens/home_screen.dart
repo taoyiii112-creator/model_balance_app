@@ -25,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final state = context.read<BalanceState>();
     state.load();
     state.startAutoRefresh();
+    UpdateService.instance.cleanupStaleDownload();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!UpdateService.instance.checkedThisSession) {
         UpdateService.instance.markChecked();

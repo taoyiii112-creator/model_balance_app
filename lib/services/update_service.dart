@@ -84,6 +84,21 @@ class UpdateService {
     );
   }
 
+  /// 清理残留的临时 APK（上次安装可能因进程被杀未执行延迟清理）。
+  Future<void> cleanupStaleDownload() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File(
+        '${dir.path}${Platform.pathSeparator}model_balance_update.apk',
+      );
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // 清理失败不影响使用
+    }
+  }
+
   static const MethodChannel _installChannel =
       MethodChannel('model_balance/install');
 
@@ -124,6 +139,27 @@ class UpdateService {
       downloadUrl: apkUrl,
       notes: (json['body'] as String?) ?? '',
       sizeBytes: sizeBytes,
+    );
+  }
+
+  /// 兼容两种更新源格式：
+  /// - GitHub Releases API（tag_name / assets）
+  /// - 简单 version.json（version / url / size / notes / sha256）
+  static AppUpdateInfo? parseUpdateInfo(Map<String, dynamic> json) {
+    if (json.containsKey('tag_name') || json.containsKey('assets')) {
+      return parseReleaseJson(json);
+    }
+    final version = json['version'] as String?;
+    final url = json['url'] as String?;
+    if (version == null || version.isEmpty || url == null || url.isEmpty) {
+      return null;
+    }
+    return AppUpdateInfo(
+      version: version.startsWith('v') ? version.substring(1) : version,
+      downloadUrl: url,
+      notes: (json['notes'] as String?) ?? '',
+      sizeBytes: (json['size'] as num?)?.toInt() ?? 0,
+      sha256: json['sha256'] as String?,
     );
   }
 
@@ -182,6 +218,9 @@ class UpdateService {
     if (resp.statusCode == 404) {
       return null;
     }
+    if (resp.statusCode == 403) {
+      throw const UpdateException('更新检查过于频繁，请稍后再试');
+    }
     if (resp.statusCode != 200) {
       throw UpdateException('检查更新失败: HTTP ${resp.statusCode}');
     }
@@ -189,7 +228,7 @@ class UpdateService {
     if (decoded is! Map<String, dynamic>) {
       return null;
     }
-    var info = parseReleaseJson(decoded);
+    var info = parseUpdateInfo(decoded);
     if (info == null) {
       return null;
     }
