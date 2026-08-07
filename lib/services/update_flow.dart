@@ -168,8 +168,18 @@ Future<void> promptForUpdate(
   }
 
   if (result == 'install' && path != null && context.mounted) {
+    final apkPath = path;
     try {
-      await UpdateService.instance.installApk(path);
+      await UpdateService.instance.installApk(apkPath);
+      // 安装完成后延迟清理下载的 APK 临时文件（等系统安装器读取完成）。
+      Future<void>.delayed(const Duration(seconds: 30), () async {
+        try {
+          final file = File(apkPath);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      });
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('安装失败：$e')));
     }
