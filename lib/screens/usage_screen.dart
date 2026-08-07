@@ -80,10 +80,52 @@ class UsageScreen extends StatelessWidget {
             )
           else
             for (final record in state.usageRecords)
-              UsageRecordTile(record: record),
+              UsageRecordTile(
+                record: record,
+                onEdit: () => _editRecord(context, record),
+                onDelete: () => _deleteRecord(context, record),
+              ),
         ],
       ),
     );
+  }
+
+  Future<void> _editRecord(BuildContext context, UsageRecord record) async {
+    final state = context.read<BalanceState>();
+    await showDialog<void>(
+      context: context,
+      builder: (_) => UsageRecordDialog(
+        accounts: state.accounts,
+        record: record,
+      ),
+    );
+  }
+
+  Future<void> _deleteRecord(BuildContext context, UsageRecord record) async {
+    final id = record.id;
+    if (id == null) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除记录'),
+        content: Text('确定删除「${record.model}」这条用量记录？'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await context.read<BalanceState>().deleteUsageRecord(id);
+    }
   }
 }
 

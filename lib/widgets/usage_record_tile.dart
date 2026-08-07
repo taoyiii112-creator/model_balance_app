@@ -4,9 +4,16 @@ import '../models/usage_record.dart';
 import '../utils/formats.dart';
 
 class UsageRecordTile extends StatelessWidget {
-  const UsageRecordTile({super.key, required this.record});
+  const UsageRecordTile({
+    super.key,
+    required this.record,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final UsageRecord record;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -21,17 +28,36 @@ class UsageRecordTile extends StatelessWidget {
         leading: const Icon(Icons.receipt_long_outlined),
         title: Text(record.model),
         subtitle: Text(subtitle),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Text(
-              '${record.totalTokens} Token',
-              style: theme.textTheme.titleSmall,
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Text(
+                  '${record.totalTokens} Token',
+                  style: theme.textTheme.titleSmall,
+                ),
+                Text(
+                  '费用 ${formatMoney(record.cost)}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
             ),
-            Text(
-              '费用 ${formatMoney(record.cost)}',
-              style: theme.textTheme.bodySmall,
+            PopupMenuButton<String>(
+              tooltip: '更多操作',
+              onSelected: (v) {
+                if (v == 'edit') {
+                  onEdit();
+                } else if (v == 'delete') {
+                  onDelete();
+                }
+              },
+              itemBuilder: (_) => const <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
+                PopupMenuItem<String>(value: 'delete', child: Text('删除')),
+              ],
             ),
           ],
         ),

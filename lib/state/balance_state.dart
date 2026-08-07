@@ -45,6 +45,20 @@ class BalanceState extends ChangeNotifier {
     );
   }
 
+  /// 暂停自动刷新（App 进入后台时调用）。
+  void pauseAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+  }
+
+  /// 恢复自动刷新。
+  void resumeAutoRefresh() {
+    _autoRefreshTimer ??= Timer.periodic(
+      autoRefreshInterval,
+      (_) => refresh(),
+    );
+  }
+
   Future<void> refresh() async {
     loading = true;
     lastError = null;
@@ -91,18 +105,31 @@ class BalanceState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 全部可用金额合计（跨币种简单求和，仅作参考）。
-  double? get totalAvailable {
-    var sum = 0.0;
-    var count = 0;
+  Future<void> updateUsageRecord(UsageRecord record) async {
+    await storage.updateUsageRecord(record);
+    usageRecords = await storage.listUsageRecords();
+    usageTotals = UsageTotals.sum(usageRecords);
+    notifyListeners();
+  }
+
+  Future<void> deleteUsageRecord(int id) async {
+    await storage.deleteUsageRecord(id);
+    usageRecords = await storage.listUsageRecords();
+    usageTotals = UsageTotals.sum(usageRecords);
+    notifyListeners();
+  }
+
+  /// 按币种汇总可用余额（不跨币种混算）。
+  Map<String, double> get totalByCurrency {
+    final map = <String, double>{};
     for (final r in results) {
-      final available = r.balance?.available;
-      if (available != null) {
-        sum += available;
-        count++;
+      final balance = r.balance;
+      final available = balance?.available;
+      if (balance != null && available != null) {
+        map[balance.currency] = (map[balance.currency] ?? 0) + available;
       }
     }
-    return count == 0 ? null : sum;
+    return map;
   }
 
   @override

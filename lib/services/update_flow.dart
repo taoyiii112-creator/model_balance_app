@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../utils/formats.dart';
@@ -84,6 +86,20 @@ Future<void> promptForUpdate(
   final failed = ValueNotifier<bool>(false);
   final totalBytes = info.sizeBytes;
 
+  // 先启动下载任务（不阻塞），弹窗打开时下载已在后台进行。
+  final downloadFuture = UpdateService.instance.downloadApk(
+    info.downloadUrl,
+    expectedSha256: info.sha256,
+    onProgress: (p) {
+      progress.value = p;
+      status.value = totalBytes > 0
+          ? '已下载 ${formatBytes((totalBytes * p).round())} / '
+              '${formatBytes(totalBytes)}（${(p * 100).toStringAsFixed(0)}%）'
+          : '${(p * 100).toStringAsFixed(0)}%';
+    },
+  );
+
+  // 弹窗与下载并行：进度通过 ValueNotifier 实时驱动界面。
   final result = await showDialog<String>(
     context: context,
     barrierDismissible: false,
@@ -131,21 +147,24 @@ Future<void> promptForUpdate(
 
   String? path;
   try {
-    path = await UpdateService.instance.downloadApk(
-      info.downloadUrl,
-      onProgress: (p) {
-        progress.value = p;
-        status.value = totalBytes > 0
-            ? '已下载 ${formatBytes((totalBytes * p).round())} / '
-                '${formatBytes(totalBytes)}（${(p * 100).toStringAsFixed(0)}%）'
-            : '${(p * 100).toStringAsFixed(0)}%';
-      },
-    );
+    path = await downloadFuture;
     status.value = '下载完成，请点击安装';
     canInstall.value = true;
   } catch (e) {
     status.value = '下载失败：$e';
     failed.value = true;
+  }
+
+  // 用户在下载期间点了「取消」：关闭弹窗但下载仍会跑完，完成后清理文件。
+  if (result == 'cancel' && path != null) {
+    try {
+      await File(path).delete();
+    } catch (_) {}
+    progress.dispose();
+    status.dispose();
+    canInstall.dispose();
+    failed.dispose();
+    return;
   }
 
   if (result == 'install' && path != null && context.mounted) {

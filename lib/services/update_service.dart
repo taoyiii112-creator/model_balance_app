@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +13,7 @@ class AppUpdateInfo {
     required this.downloadUrl,
     this.notes = '',
     this.sizeBytes = 0,
+    this.sha256,
   });
 
   final String version;
@@ -20,6 +22,19 @@ class AppUpdateInfo {
 
   /// 更新包大小（字节），未知为 0。
   final int sizeBytes;
+
+  /// 更新包 SHA256（十六进制），无校验源时为 null。
+  final String? sha256;
+
+  AppUpdateInfo copyWith({String? sha256}) {
+    return AppUpdateInfo(
+      version: version,
+      downloadUrl: downloadUrl,
+      notes: notes,
+      sizeBytes: sizeBytes,
+      sha256: sha256 ?? this.sha256,
+    );
+  }
 }
 
 /// 应用内更新：检查 GitHub Release → 下载 APK → 唤起系统安装器。
@@ -112,6 +127,23 @@ class UpdateService {
     );
   }
 
+  /// 从 Release 资产里找指定后缀的下载地址（如 .sha256）。
+  static String? findAssetUrl(Map<String, dynamic> json, String suffix) {
+    final assets = json['assets'];
+    if (assets is! List) {
+      return null;
+    }
+    for (final a in assets) {
+      if (a is Map<String, dynamic>) {
+        final name = ((a['name'] as String?) ?? '').toLowerCase();
+        if (name.endsWith(suffix)) {
+          return a['browser_download_url'] as String?;
+        }
+      }
+    }
+    return null;
+  }
+
   /// 版本号比较（主.次.补丁）：返回 a < b ? -1 : a > b ? 1 : 0。
   static int compareVersions(String a, String b) {
     final pa = _parts(a);
@@ -157,13 +189,26 @@ class UpdateService {
     if (decoded is! Map<String, dynamic>) {
       return null;
     }
-    return parseReleaseJson(decoded);
+    var info = parseReleaseJson(decoded);
+    if (info == null) {
+      return null;
+    }
+    // 若 Release 附带 <apk>.sha256 资产，拉取摘要用于下载后校验。
+    final shaAssetUrl = findAssetUrl(decoded, '.sha256');
+    if (shaAssetUrl != null) {
+      final expected = await _fetchSha256(shaAssetUrl);
+      if (expected != null && expected.isNotEmpty) {
+        info = info.copyWith(sha256: expected);
+      }
+    }
+    return info;
   }
 
   /// 下载 APK 到应用私有目录，返回本地路径；onProgress 回调 0~1。
   Future<String> downloadApk(
     String url, {
     void Function(double progress)? onProgress,
+    String? expectedSha256,
   }) async {
     final dir = await getApplicationSupportDirectory();
     final file = File(
@@ -194,7 +239,39 @@ class UpdateService {
     } finally {
       await sink.close();
     }
+    if (expectedSha256 != null && expectedSha256.isNotEmpty) {
+      final actual = await sha256OfFile(file.path);
+      if (actual.toLowerCase() != expectedSha256.toLowerCase()) {
+        try {
+          await file.delete();
+        } catch (_) {}
+        throw const UpdateException(
+          'APK 校验失败（SHA256 不匹配），文件已删除，请重试',
+        );
+      }
+    }
     return file.path;
+  }
+
+  /// 计算文件 SHA256。
+  static Future<String> sha256OfFile(String path) async {
+    final bytes = await File(path).readAsBytes();
+    return sha256.convert(bytes).toString();
+  }
+
+  static Future<String?> _fetchSha256(String url) async {
+    final http.Response resp;
+    try {
+      resp =
+          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+    } on Exception {
+      return null;
+    }
+    if (resp.statusCode != 200) {
+      return null;
+    }
+    final match = RegExp(r'[0-9a-fA-F]{64}').firstMatch(resp.body);
+    return match?.group(0);
   }
 
   /// 唤起系统安装器安装 APK。

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:model_balance_app/services/update_service.dart';
 
@@ -51,6 +53,20 @@ void main() {
 
     test('缺少 tag 时返回 null', () {
       expect(UpdateService.parseReleaseJson(<String, dynamic>{}), isNull);
+    });
+  });
+
+  group('UpdateService.sha256OfFile', () {
+    test('计算文件 SHA256', () async {
+      final dir = await Directory.systemTemp.createTemp('mb_update_test');
+      final file = File('${dir.path}${Platform.pathSeparator}a.txt');
+      await file.writeAsString('hello');
+      final digest = await UpdateService.sha256OfFile(file.path);
+      expect(
+        digest,
+        '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+      );
+      await dir.delete(recursive: true);
     });
   });
 }

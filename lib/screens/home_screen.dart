@@ -17,10 +17,11 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final state = context.read<BalanceState>();
     state.load();
     state.startAutoRefresh();
@@ -30,6 +31,26 @@ class _HomeScreenState extends State<HomeScreen> {
         _autoCheckUpdate();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// App 进入后台暂停自动刷新，回到前台立即刷新一次。
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final balanceState = context.read<BalanceState>();
+    if (state == AppLifecycleState.resumed) {
+      balanceState.resumeAutoRefresh();
+      balanceState.refresh();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      balanceState.pauseAutoRefresh();
+    }
   }
 
   /// 启动时静默检查一次更新，发现新版本才提示。
@@ -97,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSummary(BalanceState state) {
     final theme = Theme.of(context);
-    final total = state.totalAvailable;
+    final byCurrency = state.totalByCurrency;
     final refreshed = state.lastRefreshed;
     return Card(
       child: Padding(
@@ -110,12 +131,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: <Widget>[
                   Text('可用余额合计', style: theme.textTheme.bodyMedium),
                   const SizedBox(height: 4),
-                  Text(
-                    total == null ? '-' : total.toStringAsFixed(4),
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  if (byCurrency.isEmpty)
+                    Text(
+                      '-',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  else
+                    for (final entry in byCurrency.entries)
+                      Text(
+                        '${entry.key}: ${entry.value.toStringAsFixed(4)}',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                 ],
               ),
             ),

@@ -5,11 +5,14 @@ import '../models/account.dart';
 import '../models/usage_record.dart';
 import '../state/balance_state.dart';
 
-/// 添加一条 Token 用量记录的对话框，与桌面版 add-usage 命令对应。
+/// 添加 / 编辑一条 Token 用量记录的对话框。
 class UsageRecordDialog extends StatefulWidget {
-  const UsageRecordDialog({super.key, required this.accounts});
+  const UsageRecordDialog({super.key, required this.accounts, this.record});
 
   final List<Account> accounts;
+
+  /// 传入则为编辑模式，否则为新增。
+  final UsageRecord? record;
 
   @override
   State<UsageRecordDialog> createState() => _UsageRecordDialogState();
@@ -19,13 +22,25 @@ class _UsageRecordDialogState extends State<UsageRecordDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final List<String> _accountNames =
       widget.accounts.map((a) => a.name).toList();
-  late String _account = _accountNames.first;
-  final TextEditingController _modelController = TextEditingController();
-  final TextEditingController _cacheHitController = TextEditingController();
-  final TextEditingController _cacheMissController = TextEditingController();
-  final TextEditingController _completionController = TextEditingController();
-  final TextEditingController _costController = TextEditingController();
-  final TextEditingController _noteController = TextEditingController();
+  late String _account = widget.record?.account ?? _accountNames.first;
+  late final TextEditingController _modelController =
+      TextEditingController(text: widget.record?.model ?? '');
+  late final TextEditingController _cacheHitController = TextEditingController(
+    text: widget.record == null ? '' : '${widget.record!.promptCacheHitTokens}',
+  );
+  late final TextEditingController _cacheMissController = TextEditingController(
+    text:
+        widget.record == null ? '' : '${widget.record!.promptCacheMissTokens}',
+  );
+  late final TextEditingController _completionController =
+      TextEditingController(
+    text: widget.record == null ? '' : '${widget.record!.completionTokens}',
+  );
+  late final TextEditingController _costController = TextEditingController(
+    text: widget.record?.cost == null ? '' : '${widget.record!.cost}',
+  );
+  late final TextEditingController _noteController =
+      TextEditingController(text: widget.record?.note ?? '');
   bool _saving = false;
 
   @override
@@ -45,6 +60,7 @@ class _UsageRecordDialogState extends State<UsageRecordDialog> {
     }
     setState(() => _saving = true);
     final record = UsageRecord(
+      id: widget.record?.id,
       account: _account,
       model: _modelController.text.trim(),
       promptCacheHitTokens: int.tryParse(_cacheHitController.text.trim()) ?? 0,
@@ -55,7 +71,12 @@ class _UsageRecordDialogState extends State<UsageRecordDialog> {
       note: _noteController.text.trim(),
     );
     try {
-      await context.read<BalanceState>().addUsageRecord(record);
+      final state = context.read<BalanceState>();
+      if (widget.record == null) {
+        await state.addUsageRecord(record);
+      } else {
+        await state.updateUsageRecord(record);
+      }
       if (!mounted) {
         return;
       }

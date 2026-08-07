@@ -78,6 +78,29 @@ class StorageService {
     return db.insert('usage_records', record.toDbMap());
   }
 
+  Future<int> updateUsageRecord(UsageRecord record) async {
+    final id = record.id;
+    if (id == null) {
+      throw ArgumentError('更新用量记录需要 id');
+    }
+    final db = await _database;
+    return db.update(
+      'usage_records',
+      record.toDbMap(),
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  Future<int> deleteUsageRecord(int id) async {
+    final db = await _database;
+    return db.delete(
+      'usage_records',
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
   Future<List<UsageRecord>> listUsageRecords({
     String? account,
     DateTime? since,
