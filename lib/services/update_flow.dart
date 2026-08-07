@@ -5,11 +5,34 @@ import 'package:flutter/material.dart';
 import '../utils/formats.dart';
 import 'update_service.dart';
 
+/// 更新流程互斥锁：检查/弹窗进行中时忽略新的触发，防止重复弹窗。
+bool _updateFlowInProgress = false;
+
 /// 检查更新并引导下载安装。
 ///
 /// [manual] 为 true 时由用户主动触发：无更新 / 失败都会提示；
 /// 为 false 时启动静默检查：只在发现新版本时弹窗。
 Future<void> promptForUpdate(
+  BuildContext context, {
+  required String currentVersion,
+  required bool manual,
+}) async {
+  if (_updateFlowInProgress) {
+    return;
+  }
+  _updateFlowInProgress = true;
+  try {
+    await _promptForUpdateInner(
+      context,
+      currentVersion: currentVersion,
+      manual: manual,
+    );
+  } finally {
+    _updateFlowInProgress = false;
+  }
+}
+
+Future<void> _promptForUpdateInner(
   BuildContext context, {
   required String currentVersion,
   required bool manual,
