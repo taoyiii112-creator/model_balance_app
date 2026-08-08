@@ -284,11 +284,13 @@ class UpdateService {
     void Function(double progress)? onProgress,
   ) async {
     final http.StreamedResponse response;
+    final client = http.Client();
     try {
-      response = await http.Client()
+      response = await client
           .send(http.Request('GET', Uri.parse(url)))
           .timeout(const Duration(seconds: 20));
     } on Exception catch (e) {
+      client.close();
       throw UpdateException('下载失败: $e');
     }
     if (response.statusCode != 200) {
@@ -298,15 +300,22 @@ class UpdateService {
     var received = 0;
     final sink = file.openWrite();
     try {
-      await for (final chunk in response.stream) {
-        received += chunk.length;
-        sink.add(chunk);
-        if (total > 0 && onProgress != null) {
-          onProgress(received / total);
+      try {
+        await for (final chunk
+            in response.stream.timeout(const Duration(seconds: 30))) {
+          received += chunk.length;
+          sink.add(chunk);
+          if (total > 0 && onProgress != null) {
+            // 进度封顶 99%，100% 由调用方在完成后设置。
+            onProgress(((received / total) * 0.99).clamp(0.0, 0.99));
+          }
         }
+      } on Exception {
+        throw const UpdateException('下载超时或连接中断，请重试');
       }
     } finally {
       await sink.close();
+      client.close();
     }
   }
 
@@ -330,19 +339,20 @@ class UpdateService {
       final part = partFiles[index];
       for (var attempt = 1; attempt <= 3; attempt++) {
         var chunkReceived = 0;
+        final client = http.Client();
         try {
           final request = http.Request('GET', Uri.parse(url));
           request.headers['Range'] = 'bytes=$start-$end';
-          final response = await http.Client()
-              .send(request)
-              .timeout(const Duration(seconds: 20));
+          final response =
+              await client.send(request).timeout(const Duration(seconds: 20));
           if (response.statusCode != 206) {
             // 服务器不支持 Range：整体回退单流
             throw _RangeUnsupportedException();
           }
           final sink = part.openWrite();
           try {
-            await for (final chunk in response.stream) {
+            await for (final chunk
+                in response.stream.timeout(const Duration(seconds: 30))) {
               sink.add(chunk);
               chunkReceived += chunk.length;
             }
@@ -352,7 +362,8 @@ class UpdateService {
           // 只有成功的分块才把字节数计入进度，失败重试的字节数不重复累计。
           received += chunkReceived;
           if (onProgress != null) {
-            onProgress((received / totalBytes).clamp(0.0, 1.0));
+            // 进度封顶 99%，100% 由调用方在完成后设置。
+            onProgress(((received / totalBytes) * 0.99).clamp(0.0, 0.99));
           }
           return;
         } on _RangeUnsupportedException {
@@ -362,6 +373,8 @@ class UpdateService {
             throw UpdateException('分块下载失败: 第 ${index + 1}/$concurrency 块');
           }
           await Future<void>.delayed(const Duration(seconds: 2));
+        } finally {
+          client.close();
         }
       }
     }

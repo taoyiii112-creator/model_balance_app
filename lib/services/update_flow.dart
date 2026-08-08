@@ -173,6 +173,7 @@ Future<void> _promptForUpdateInner(
   String? path;
   try {
     path = await downloadFuture;
+    progress.value = 1.0;
     status.value = '下载完成，请点击安装';
     canInstall.value = true;
   } catch (e) {
