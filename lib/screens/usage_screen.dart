@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/usage_record.dart';
+import '../services/lan_sync_service.dart';
 import '../state/balance_state.dart';
 import '../utils/formats.dart';
 import '../utils/usage_stats.dart';
@@ -56,10 +57,93 @@ class UsageScreen extends StatelessWidget {
                 _pickFile(context);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.wifi),
+              title: const Text('局域网同步'),
+              subtitle: const Text('电脑运行 lan-sync 服务后，直接拉取最新用量'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _lanSync(context);
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _lanSync(BuildContext context) async {
+    final state = context.read<BalanceState>();
+    if (state.accounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先在「设置」中添加账户（用于局域网鉴权）')),
+      );
+      return;
+    }
+    final controller = TextEditingController();
+    final host = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('局域网同步'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '电脑局域网 IP',
+                hintText: '如 192.168.1.100',
+                helperText: '端口 8002',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '鉴权账户：${state.accounts.first.name}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('同步'),
+          ),
+        ],
+      ),
+    );
+    if (host == null || host.isEmpty || !context.mounted) {
+      return;
+    }
+    try {
+      final result = await context.read<BalanceState>().lanSyncCodex(
+            host,
+            LanSyncService.defaultPort,
+            state.accounts.first.apiKey,
+          );
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '同步完成：新增 ${result.imported} 条，跳过重复 ${result.skipped} 条',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('同步失败：$e')),
+        );
+      }
+    }
   }
 
   Future<void> _pasteJson(BuildContext context) async {

@@ -9,6 +9,7 @@ import '../models/account.dart';
 import '../models/balance.dart';
 import '../models/usage_record.dart';
 import '../services/balance_service.dart';
+import '../services/lan_sync_service.dart';
 import '../services/secure_config_store.dart';
 import '../services/storage_service.dart';
 import '../services/usage_import_service.dart';
@@ -193,6 +194,20 @@ class BalanceState extends ChangeNotifier {
   Future<CodexImportResult> importCodexUsage(String content) async {
     final result =
         await UsageImportService(storage: storage).importCodex(content);
+    usageRecords = await storage.listUsageRecords();
+    usageTotals = UsageTotals.sum(usageRecords);
+    notifyListeners();
+    return result;
+  }
+
+  /// 局域网同步：从电脑端拉取 Codex 用量并增量导入。
+  Future<CodexImportResult> lanSyncCodex(
+    String host,
+    int port,
+    String apiKey,
+  ) async {
+    final result = await LanSyncService(storage: storage)
+        .fetchAndImport(host, port, apiKey);
     usageRecords = await storage.listUsageRecords();
     usageTotals = UsageTotals.sum(usageRecords);
     notifyListeners();
