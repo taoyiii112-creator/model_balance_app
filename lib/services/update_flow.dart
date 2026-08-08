@@ -113,6 +113,7 @@ Future<void> _promptForUpdateInner(
   final downloadFuture = UpdateService.instance.downloadApk(
     info.downloadUrl,
     expectedSha256: info.sha256,
+    totalBytes: info.sizeBytes,
     onProgress: (p) {
       progress.value = p;
       status.value = totalBytes > 0

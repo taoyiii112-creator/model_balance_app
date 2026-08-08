@@ -244,15 +244,45 @@ class UpdateService {
   }
 
   /// 下载 APK 到应用私有目录，返回本地路径；onProgress 回调 0~1。
+  /// [totalBytes] 已知时使用多线程分块下载（[concurrency] 路并行）加速，
+  /// 服务器不支持 Range 时自动回退为单流下载。
   Future<String> downloadApk(
     String url, {
     void Function(double progress)? onProgress,
     String? expectedSha256,
+    int? totalBytes,
+    int concurrency = 4,
   }) async {
     final dir = await getApplicationSupportDirectory();
     final file = File(
       '${dir.path}${Platform.pathSeparator}model_balance_update.apk',
     );
+
+    if (totalBytes != null && totalBytes > 0 && concurrency > 1) {
+      final ok = await _downloadParallel(
+        url,
+        file,
+        totalBytes,
+        concurrency,
+        onProgress,
+      );
+      if (ok) {
+        await _verifyDownloaded(file, expectedSha256, totalBytes);
+        return file.path;
+      }
+      // 并行失败（服务器不支持 Range）→ 回退单流
+    }
+
+    await _downloadSingle(url, file, onProgress);
+    await _verifyDownloaded(file, expectedSha256, null);
+    return file.path;
+  }
+
+  Future<void> _downloadSingle(
+    String url,
+    File file,
+    void Function(double progress)? onProgress,
+  ) async {
     final http.StreamedResponse response;
     try {
       response = await http.Client()
@@ -278,6 +308,108 @@ class UpdateService {
     } finally {
       await sink.close();
     }
+  }
+
+  Future<bool> _downloadParallel(
+    String url,
+    File file,
+    int totalBytes,
+    int concurrency,
+    void Function(double progress)? onProgress,
+  ) async {
+    final partFiles = <File>[
+      for (var i = 0; i < concurrency; i++) File('${file.path}.part$i'),
+    ];
+    var received = 0;
+    final chunkSize = (totalBytes / concurrency).ceil();
+
+    Future<void> fetchChunk(int index) async {
+      final start = index * chunkSize;
+      final end =
+          index == concurrency - 1 ? totalBytes - 1 : start + chunkSize - 1;
+      final part = partFiles[index];
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        try {
+          final request = http.Request('GET', Uri.parse(url));
+          request.headers['Range'] = 'bytes=$start-$end';
+          final response = await http.Client()
+              .send(request)
+              .timeout(const Duration(seconds: 20));
+          if (response.statusCode != 206) {
+            // 服务器不支持 Range：整体回退单流
+            throw _RangeUnsupportedException();
+          }
+          final sink = part.openWrite();
+          try {
+            await for (final chunk in response.stream) {
+              sink.add(chunk);
+              received += chunk.length;
+              if (onProgress != null) {
+                onProgress(received / totalBytes);
+              }
+            }
+          } finally {
+            await sink.close();
+          }
+          return;
+        } on _RangeUnsupportedException {
+          rethrow;
+        } on Exception {
+          if (attempt == 3) {
+            throw UpdateException('分块下载失败: 第 ${index + 1}/$concurrency 块');
+          }
+          await Future<void>.delayed(const Duration(seconds: 2));
+        }
+      }
+    }
+
+    try {
+      await Future.wait(<Future<void>>[
+        for (var i = 0; i < concurrency; i++) fetchChunk(i),
+      ]);
+    } on _RangeUnsupportedException {
+      for (final p in partFiles) {
+        try {
+          await p.delete();
+        } catch (_) {}
+      }
+      return false;
+    } catch (e) {
+      for (final p in partFiles) {
+        try {
+          await p.delete();
+        } catch (_) {}
+      }
+      rethrow;
+    }
+
+    final sink = file.openWrite();
+    try {
+      for (final p in partFiles) {
+        sink.add(await p.readAsBytes());
+      }
+    } finally {
+      await sink.close();
+    }
+    for (final p in partFiles) {
+      try {
+        await p.delete();
+      } catch (_) {}
+    }
+    return true;
+  }
+
+  Future<void> _verifyDownloaded(
+    File file,
+    String? expectedSha256,
+    int? expectedSize,
+  ) async {
+    if (expectedSize != null && await file.length() != expectedSize) {
+      try {
+        await file.delete();
+      } catch (_) {}
+      throw const UpdateException('下载文件不完整（大小不符），请重试');
+    }
     if (expectedSha256 != null && expectedSha256.isNotEmpty) {
       final actual = await sha256OfFile(file.path);
       if (actual.toLowerCase() != expectedSha256.toLowerCase()) {
@@ -289,7 +421,6 @@ class UpdateService {
         );
       }
     }
-    return file.path;
   }
 
   /// 计算文件 SHA256。
@@ -327,3 +458,6 @@ class UpdateException implements Exception {
   @override
   String toString() => message;
 }
+
+/// 服务器不支持 Range 时抛出，触发回退单流下载。
+class _RangeUnsupportedException implements Exception {}
