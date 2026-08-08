@@ -57,7 +57,7 @@ test/
 
 ## 当前状态
 
-- 最新版本：**v0.2.6**（已发布 GitHub Release，正式签名 APK + SHA256 校验文件）
+- 最新版本：**v0.2.8**（已发布 GitHub Release，正式签名 APK + SHA256 校验文件）
 - `flutter analyze` 零问题；`flutter test` 25 个测试全部通过
 - APK 产物：`build/app/outputs/flutter-apk/app-release.apk`（约 50.4MB，正式签名）
 - 开发环境：Flutter 3.44.8 / Dart 3.12.2 / Android SDK 36.1.0，构建走中国镜像
@@ -157,6 +157,4 @@ flutter build apk    # 打 Android 安装包
 | `storage.py`（SQLite） | `lib/services/storage_service.dart`（sqflite） |
 | `app.py`（Tkinter） | `lib/screens/*`（Material 3） |
 
-作为子项目，本目录只保留这一份 README.md；项目的开发进度文档
-（memory.md / summary.md / todo.md）由父项目 `D:\codexProject\模型余额`
-统一维护，涉及本项目的进度与约定请查看父项目的对应文档。
+作为独立项目，本目录维护完整四件套（README / memory / todo / summary），进度文档不并入父项目；端间关系说明见本 README「相关项目（备注）」段落。
