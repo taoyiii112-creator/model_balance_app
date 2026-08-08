@@ -74,14 +74,13 @@ class UsageScreen extends StatelessWidget {
 
   Future<void> _lanSync(BuildContext context) async {
     final state = context.read<BalanceState>();
-    if (state.accounts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先在「设置」中添加账户（用于局域网鉴权）')),
-      );
+    final savedToken = await state.configStore.loadLanSyncToken();
+    if (!context.mounted) {
       return;
     }
-    final controller = TextEditingController();
-    final host = await showDialog<String>(
+    final ipController = TextEditingController();
+    final tokenController = TextEditingController(text: savedToken ?? '');
+    final input = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('局域网同步'),
@@ -89,7 +88,7 @@ class UsageScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             TextField(
-              controller: controller,
+              controller: ipController,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
@@ -99,8 +98,16 @@ class UsageScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
+            TextField(
+              controller: tokenController,
+              decoration: const InputDecoration(
+                labelText: '同步令牌',
+                hintText: '电脑端 lan-sync 启动时显示的令牌',
+              ),
+            ),
+            const SizedBox(height: 8),
             Text(
-              '鉴权账户：${state.accounts.first.name}',
+              '令牌只用于读取用量，不涉及 API Key',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -111,22 +118,35 @@ class UsageScreen extends StatelessWidget {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () {
+              final ip = ipController.text.trim();
+              final token = tokenController.text.trim();
+              if (ip.isEmpty || token.isEmpty) {
+                return;
+              }
+              Navigator.of(dialogContext).pop('$ip\u0000$token');
+            },
             child: const Text('同步'),
           ),
         ],
       ),
     );
-    if (host == null || host.isEmpty || !context.mounted) {
+    if (input == null || !input.contains('\u0000') || !context.mounted) {
       return;
     }
+    final parts = input.split('\u0000');
+    final ip = parts[0];
+    final token = parts[1];
     try {
       final result = await context.read<BalanceState>().lanSyncCodex(
-            host,
+            ip,
             LanSyncService.defaultPort,
-            state.accounts.first.apiKey,
+            token,
           );
+      if (!context.mounted) {
+        return;
+      }
+      await state.configStore.saveLanSyncToken(token);
       if (!context.mounted) {
         return;
       }

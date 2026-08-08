@@ -10,6 +10,7 @@ class SecureConfigStore {
       : _storage = storage ?? const FlutterSecureStorage();
 
   static const String _accountsKey = 'accounts';
+  static const String _lanSyncTokenKey = 'lan_sync_token';
 
   final FlutterSecureStorage _storage;
 
@@ -33,5 +34,13 @@ class SecureConfigStore {
       accounts.map((a) => a.toJson()).toList(),
     );
     await _storage.write(key: _accountsKey, value: raw);
+  }
+
+  Future<String?> loadLanSyncToken() async {
+    return _storage.read(key: _lanSyncTokenKey);
+  }
+
+  Future<void> saveLanSyncToken(String token) async {
+    await _storage.write(key: _lanSyncTokenKey, value: token);
   }
 }

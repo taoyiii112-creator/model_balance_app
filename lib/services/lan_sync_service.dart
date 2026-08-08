@@ -30,19 +30,19 @@ class LanSyncService {
   Future<CodexImportResult> fetchAndImport(
     String host,
     int port,
-    String apiKey,
+    String token,
   ) async {
     final http.Response resp;
     try {
       resp = await http.get(
         Uri.parse(buildUrl(host, port)),
-        headers: <String, String>{'Authorization': 'Bearer $apiKey'},
+        headers: <String, String>{'Authorization': 'Bearer $token'},
       ).timeout(const Duration(seconds: 15));
     } on Exception catch (e) {
       throw LanSyncException('无法连接电脑：$e');
     }
     if (resp.statusCode == 401) {
-      throw const LanSyncException('鉴权失败：电脑端 config.json 需包含对应账户 Key');
+      throw const LanSyncException('鉴权失败：同步令牌不正确，请核对电脑端显示/保存的令牌');
     }
     if (resp.statusCode != 200) {
       throw LanSyncException('同步失败：HTTP ${resp.statusCode}');

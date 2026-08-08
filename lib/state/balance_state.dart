@@ -204,10 +204,10 @@ class BalanceState extends ChangeNotifier {
   Future<CodexImportResult> lanSyncCodex(
     String host,
     int port,
-    String apiKey,
+    String token,
   ) async {
     final result = await LanSyncService(storage: storage)
-        .fetchAndImport(host, port, apiKey);
+        .fetchAndImport(host, port, token);
     usageRecords = await storage.listUsageRecords();
     usageTotals = UsageTotals.sum(usageRecords);
     notifyListeners();
