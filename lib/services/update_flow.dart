@@ -118,7 +118,8 @@ Future<void> _promptForUpdateInner(
       progress.value = p;
       status.value = totalBytes > 0
           ? '已下载 ${formatBytes((totalBytes * p).round())} / '
-              '${formatBytes(totalBytes)}（${(p * 100).toStringAsFixed(0)}%）'
+              '${formatBytes(totalBytes)}'
+              '（${((p * 100).clamp(0, 100)).toStringAsFixed(0)}%）'
           : '${(p * 100).toStringAsFixed(0)}%';
     },
   );

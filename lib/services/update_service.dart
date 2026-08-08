@@ -329,6 +329,7 @@ class UpdateService {
           index == concurrency - 1 ? totalBytes - 1 : start + chunkSize - 1;
       final part = partFiles[index];
       for (var attempt = 1; attempt <= 3; attempt++) {
+        var chunkReceived = 0;
         try {
           final request = http.Request('GET', Uri.parse(url));
           request.headers['Range'] = 'bytes=$start-$end';
@@ -343,13 +344,15 @@ class UpdateService {
           try {
             await for (final chunk in response.stream) {
               sink.add(chunk);
-              received += chunk.length;
-              if (onProgress != null) {
-                onProgress(received / totalBytes);
-              }
+              chunkReceived += chunk.length;
             }
           } finally {
             await sink.close();
+          }
+          // 只有成功的分块才把字节数计入进度，失败重试的字节数不重复累计。
+          received += chunkReceived;
+          if (onProgress != null) {
+            onProgress((received / totalBytes).clamp(0.0, 1.0));
           }
           return;
         } on _RangeUnsupportedException {
