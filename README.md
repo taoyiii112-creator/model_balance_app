@@ -22,6 +22,9 @@
 - **应用内更新**：启动时自动检查、设置页可手动检查 GitHub Release 新版本，
   一键下载（多线程分块加速 + 进度显示 + SHA256 校验）并唤起系统安装器，
   安装后自动清理临时包；更新源可配置（GitHub Releases 或自建 version.json）
+- **系统通知与消息中心**：低余额（阈值在设置页可调，默认 5）与发现新版本时弹
+  系统通知，并写入应用内「消息中心」（首页铃铛角标显示未读数）；点系统通知
+  直达消息页，支持已读 / 全部已读 / 删除 / 详情；消息保留 90 天
 
 
 ## 目录结构
@@ -30,21 +33,23 @@
 lib/
 ├── main.dart                 # 入口
 ├── app.dart                  # MaterialApp + 底部导航
-├── models/                   # Account / Balance / UsageRecord
+├── models/                   # Account / Balance / UsageRecord / AppNotification
 ├── services/
 │   ├── providers/            # deepseek / openai / openai_compat 查询适配器
 │   ├── balance_service.dart  # 余额聚合查询
 │   ├── secure_config_store.dart  # API Key 安全存储
-│   └── storage_service.dart  # SQLite 用量与快照
+│   ├── notification_service.dart # 系统通知（flutter_local_notifications）
+│   └── storage_service.dart  # SQLite 用量、快照与消息
 ├── state/balance_state.dart  # 全局状态（Provider）
-├── screens/                  # 余额 / 用量 / 设置 / 账户编辑
+├── screens/                  # 余额 / 用量 / 设置 / 账户编辑 / 消息中心
 ├── widgets/                  # 账户卡片、用量记录等组件
 └── utils/formats.dart        # 金额与时间格式化
 test/
 ├── parsers_test.dart         # 三家余额响应解析单测
 ├── usage_stats_test.dart     # 用量统计聚合测试
 ├── update_service_test.dart  # 更新源解析 / 版本比较 / SHA256 测试
-├── balance_state_test.dart   # 状态层测试（按币种汇总 / 刷新间隔）
+├── balance_state_test.dart   # 状态层测试（按币种汇总 / 阈值 / 低余额去重）
+├── app_notification_test.dart # 消息模型落库往返测试
 ├── formats_test.dart         # 格式化工具测试
 └── widget_test.dart          # 首页冒烟测试
 ```
@@ -58,7 +63,7 @@ test/
 ## 当前状态
 
 - 最新版本：**v0.2.8**（已发布 GitHub Release，正式签名 APK + SHA256 校验文件）
-- `flutter analyze` 零问题；`flutter test` 25 个测试全部通过
+- `flutter analyze` 零问题；`flutter test` 34 个测试全部通过
 - APK 产物：`build/app/outputs/flutter-apk/app-release.apk`（约 50.4MB，正式签名）
 - 开发环境：Flutter 3.44.8 / Dart 3.12.2 / Android SDK 36.1.0，构建走中国镜像
 
@@ -142,7 +147,6 @@ flutter build apk    # 打 Android 安装包
 
 ## 下一步计划
 
-- 低余额告警
 - Token 用量自动采集（中转渠道用量接口，DeepSeek 官方无公开用量接口）
 - 与桌面版数据同步（可选，需后端）
 - iOS 构建验证（需 macOS 环境）

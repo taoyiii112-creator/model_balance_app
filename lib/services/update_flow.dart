@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../state/balance_state.dart';
 import '../utils/formats.dart';
 import 'update_service.dart';
 
@@ -38,6 +40,7 @@ Future<void> _promptForUpdateInner(
   required bool manual,
 }) async {
   final messenger = ScaffoldMessenger.of(context);
+  final balanceState = context.read<BalanceState>();
 
   AppUpdateInfo? info;
   try {
@@ -60,6 +63,12 @@ Future<void> _promptForUpdateInner(
     }
     return;
   }
+  if (!context.mounted) {
+    return;
+  }
+
+  // 发现新版本：写入消息中心并弹系统通知。
+  await balanceState.notifyUpdateAvailable(info.version, info.notes);
   if (!context.mounted) {
     return;
   }

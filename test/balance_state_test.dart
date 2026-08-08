@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:model_balance_app/models/account.dart';
 import 'package:model_balance_app/models/balance.dart';
-import 'package:model_balance_app/models/usage_record.dart';
 import 'package:model_balance_app/services/secure_config_store.dart';
-import 'package:model_balance_app/services/storage_service.dart';
 import 'package:model_balance_app/state/balance_state.dart';
+
+import 'fakes.dart';
 
 class _FakeConfigStore extends SecureConfigStore {
   @override
@@ -14,36 +14,7 @@ class _FakeConfigStore extends SecureConfigStore {
   Future<void> saveAccounts(List<Account> accounts) async {}
 }
 
-class _FakeStorage extends StorageService {
-  @override
-  Future<List<UsageRecord>> listUsageRecords({
-    String? account,
-    DateTime? since,
-  }) async {
-    return <UsageRecord>[];
-  }
-
-  @override
-  Future<int> addUsageRecord(UsageRecord record) async => 1;
-
-  @override
-  Future<int> updateUsageRecord(UsageRecord record) async => 1;
-
-  @override
-  Future<int> deleteUsageRecord(int id) async => 1;
-
-  @override
-  Future<int> addSnapshot(Balance balance) async => 1;
-
-  @override
-  Future<List<BalanceSnapshot>> listSnapshots({
-    String? account,
-    DateTime? since,
-    int? limit,
-  }) async {
-    return <BalanceSnapshot>[];
-  }
-}
+class _FakeStorage extends MemoryStorage {}
 
 void main() {
   test('totalByCurrency 按币种分组汇总', () {
@@ -106,5 +77,80 @@ void main() {
     expect(state.refreshSeconds, 60);
     await state.setRefreshInterval(2);
     expect(state.refreshSeconds, 5);
+  });
+
+  test('setAlertThreshold 设置并限制最小值', () async {
+    final state = BalanceState(
+      configStore: _FakeConfigStore(),
+      storage: _FakeStorage(),
+    );
+    await state.setAlertThreshold(2.5);
+    expect(state.alertThreshold, 2.5);
+    await state.setAlertThreshold(-1);
+    expect(state.alertThreshold, 0);
+  });
+
+  test('低余额触发消息并同日去重', () async {
+    final storage = _FakeStorage();
+    final state = BalanceState(
+      configStore: _FakeConfigStore(),
+      storage: storage,
+    );
+    state.alertThreshold = 5;
+    state.results = <AccountResult>[
+      AccountResult(
+        account: const Account(
+          name: 'deepseek-main',
+          provider: 'deepseek',
+          apiKey: 'k',
+        ),
+        balance: Balance(
+          account: 'deepseek-main',
+          provider: 'deepseek',
+          currency: 'CNY',
+          available: 0.3,
+        ),
+      ),
+    ];
+
+    await state.checkLowBalanceAlerts();
+    expect(storage.notifications.length, 1);
+    expect(state.notifications.single.title, '低余额提醒');
+    expect(state.notifications.single.body, contains('deepseek-main'));
+    expect(state.unreadNotificationCount, 1);
+
+    // 同一天重复检查不再新增。
+    await state.checkLowBalanceAlerts();
+    expect(storage.notifications.length, 1);
+
+    await state.markAllNotificationsRead();
+    expect(state.unreadNotificationCount, 0);
+  });
+
+  test('余额高于阈值不生成消息', () async {
+    final storage = _FakeStorage();
+    final state = BalanceState(
+      configStore: _FakeConfigStore(),
+      storage: storage,
+    );
+    state.alertThreshold = 5;
+    state.results = <AccountResult>[
+      AccountResult(
+        account: const Account(
+          name: 'deepseek-main',
+          provider: 'deepseek',
+          apiKey: 'k',
+        ),
+        balance: Balance(
+          account: 'deepseek-main',
+          provider: 'deepseek',
+          currency: 'CNY',
+          available: 50,
+        ),
+      ),
+    ];
+
+    await state.checkLowBalanceAlerts();
+    expect(storage.notifications, isEmpty);
   });
 }

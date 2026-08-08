@@ -101,6 +101,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _editAlertThreshold() async {
+    final controller = TextEditingController(
+      text: context
+          .read<BalanceState>()
+          .alertThreshold
+          .toStringAsFixed(2),
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('低余额提醒阈值'),
+        content: TextField(
+          controller: controller,
+          keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            hintText: '例如 5 表示余额低于 5 时提醒',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+    final value = double.tryParse(result);
+    if (value == null || value < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入大于等于 0 的数字')),
+      );
+      return;
+    }
+    await context.read<BalanceState>().setAlertThreshold(value);
+  }
+
   Future<void> _openEditor(BuildContext context, {Account? account}) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -218,6 +263,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context.read<BalanceState>().setRefreshInterval(v);
                   }
                 },
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.notifications_active_outlined),
+              title: const Text('低余额提醒阈值'),
+              subtitle: Text(
+                '余额低于 ${state.alertThreshold.toStringAsFixed(2)} '
+                '时发消息并弹系统通知',
+              ),
+              trailing: FilledButton.tonal(
+                onPressed: _editAlertThreshold,
+                child: const Text('修改'),
               ),
             ),
           ),

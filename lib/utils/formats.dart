@@ -13,6 +13,10 @@ String formatDateTime(DateTime t) {
       '${_two(t.hour)}:${_two(t.minute)}:${_two(t.second)}';
 }
 
+String formatTime(DateTime t) {
+  return '${_two(t.hour)}:${_two(t.minute)}';
+}
+
 /// 提供商显示名。
 String providerLabel(String provider) {
   switch (provider) {

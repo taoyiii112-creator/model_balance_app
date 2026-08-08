@@ -9,6 +9,7 @@ import '../state/balance_state.dart';
 import '../utils/formats.dart';
 import '../widgets/account_card.dart';
 import '../widgets/balance_trend_chart.dart';
+import 'notifications_screen.dart';
 
 /// 余额首页：汇总 + 账户余额列表 + 30 秒自动刷新。
 class HomeScreen extends StatefulWidget {
@@ -77,6 +78,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return context.read<BalanceState>().refresh();
   }
 
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const NotificationsScreen(),
+      ),
+    );
+  }
+
+  static String _badgeLabel(int count) {
+    if (count > 99) {
+      return '99+';
+    }
+    return '$count';
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<BalanceState>();
@@ -91,6 +107,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             onPressed: state.loading ? null : _refresh,
             tooltip: '立即刷新',
             icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            onPressed: _openNotifications,
+            tooltip: '消息',
+            icon: Badge(
+              isLabelVisible: state.unreadNotificationCount > 0,
+              label: Text(_badgeLabel(state.unreadNotificationCount)),
+              child: const Icon(Icons.notifications_outlined),
+            ),
           ),
         ],
       ),

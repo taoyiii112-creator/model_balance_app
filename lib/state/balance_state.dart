@@ -6,10 +6,12 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/account.dart';
+import '../models/app_notification.dart';
 import '../models/balance.dart';
 import '../models/usage_record.dart';
 import '../services/balance_service.dart';
 import '../services/lan_sync_service.dart';
+import '../services/notification_service.dart';
 import '../services/secure_config_store.dart';
 import '../services/storage_service.dart';
 import '../services/usage_import_service.dart';
@@ -32,9 +34,12 @@ class BalanceState extends ChangeNotifier {
   bool loading = false;
   String? lastError;
   DateTime? lastRefreshed;
+  List<AppNotification> notifications = <AppNotification>[];
+  double alertThreshold = 5.0;
 
   Timer? _autoRefreshTimer;
   int _refreshSeconds = 30;
+  int _notificationSeq = 0;
 
   /// 自动刷新间隔（秒），默认 30。
   int get refreshSeconds => _refreshSeconds;
@@ -47,6 +52,8 @@ class BalanceState extends ChangeNotifier {
     usageRecords = await storage.listUsageRecords();
     usageTotals = UsageTotals.sum(usageRecords);
     await _loadSnapshots();
+    await storage.pruneNotifications();
+    notifications = await storage.listNotifications();
     notifyListeners();
   }
 
@@ -62,6 +69,10 @@ class BalanceState extends ChangeNotifier {
         if (seconds is num && seconds >= 5) {
           _refreshSeconds = seconds.toInt();
         }
+        final threshold = data is Map ? data['alert_threshold'] : null;
+        if (threshold is num && threshold >= 0) {
+          alertThreshold = threshold.toDouble();
+        }
       }
     } catch (_) {
       // 读取失败用默认值
@@ -72,18 +83,32 @@ class BalanceState extends ChangeNotifier {
   Future<void> setRefreshInterval(int seconds) async {
     _refreshSeconds = seconds < 5 ? 5 : seconds;
     _restartAutoRefresh();
+    await _saveSettings();
+    notifyListeners();
+  }
+
+  /// 设置低余额提醒阈值（币种金额单位），持久化到 settings.json。
+  Future<void> setAlertThreshold(double value) async {
+    alertThreshold = value < 0 ? 0 : value;
+    await _saveSettings();
+    notifyListeners();
+  }
+
+  Future<void> _saveSettings() async {
     try {
       final dir = await getApplicationSupportDirectory();
       final file = File(
         '${dir.path}${Platform.pathSeparator}settings.json',
       );
       await file.writeAsString(
-        jsonEncode(<String, dynamic>{'refresh_seconds': _refreshSeconds}),
+        jsonEncode(<String, dynamic>{
+          'refresh_seconds': _refreshSeconds,
+          'alert_threshold': alertThreshold,
+        }),
       );
     } catch (_) {
       // 持久化失败不影响本次设置
     }
-    notifyListeners();
   }
 
   Future<void> _loadSnapshots() async {
@@ -141,6 +166,7 @@ class BalanceState extends ChangeNotifier {
         }
       }
       await _loadSnapshots();
+      await checkLowBalanceAlerts();
       lastRefreshed = DateTime.now();
     } catch (e) {
       lastError = '$e';
@@ -148,6 +174,116 @@ class BalanceState extends ChangeNotifier {
       loading = false;
       notifyListeners();
     }
+  }
+
+  /// 检查各账户可用余额是否低于阈值；低于时生成消息并弹系统通知。
+  ///
+  /// 同一账户同一天只提醒一次（按去重键），余额恢复后次日重新提醒。
+  Future<void> checkLowBalanceAlerts() async {
+    final today = DateTime.now();
+    for (final r in results) {
+      final balance = r.balance;
+      final available = balance?.available;
+      if (!r.ok || balance == null || available == null) {
+        continue;
+      }
+      if (available >= alertThreshold) {
+        continue;
+      }
+      final dedupeKey =
+          'low_balance:${balance.account}:${_dateKey(today)}';
+      final created = await _createNotification(
+        type: 'low_balance',
+        title: '低余额提醒',
+        body: '${balance.account} 可用余额 '
+            '${available.toStringAsFixed(4)} ${balance.currency}，'
+            '已低于提醒阈值 ${alertThreshold.toStringAsFixed(2)}。',
+        dedupeKey: dedupeKey,
+      );
+      if (created) {
+        await NotificationService.instance.show(
+          id: _nextNotificationId(),
+          title: '低余额提醒',
+          body: '${balance.account} 可用余额低于 '
+              '${alertThreshold.toStringAsFixed(2)} ${balance.currency}',
+        );
+      }
+    }
+  }
+
+  /// 发现新版本时写入消息并弹系统通知。
+  Future<void> notifyUpdateAvailable(String version, String notes) async {
+    final created = await _createNotification(
+      type: 'update_available',
+      title: '发现新版本 v$version',
+      body: notes.trim().isEmpty ? '有新版本可用，可在设置中查看并更新。' : notes.trim(),
+      dedupeKey: 'update_available:$version',
+    );
+    if (created) {
+      await NotificationService.instance.show(
+        id: _nextNotificationId(),
+        title: '发现新版本 v$version',
+        body: '模型余额有新版本可用，点此查看更新内容。',
+      );
+    }
+  }
+
+  /// 写入一条消息（去重键已存在时返回 false）。
+  Future<bool> _createNotification({
+    required String type,
+    required String title,
+    required String body,
+    String? dedupeKey,
+  }) async {
+    if (dedupeKey != null && await storage.notificationExists(dedupeKey)) {
+      return false;
+    }
+    await storage.addNotification(
+      AppNotification(
+        type: type,
+        title: title,
+        body: body,
+        dedupeKey: dedupeKey,
+      ),
+    );
+    notifications = await storage.listNotifications();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> markNotificationRead(int id) async {
+    await storage.markNotificationRead(id);
+    notifications = await storage.listNotifications();
+    notifyListeners();
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await storage.markAllNotificationsRead();
+    notifications = await storage.listNotifications();
+    notifyListeners();
+  }
+
+  Future<void> deleteNotification(int id) async {
+    await storage.deleteNotification(id);
+    notifications = await storage.listNotifications();
+    notifyListeners();
+  }
+
+  int get unreadNotificationCount =>
+      notifications.where((n) => !n.read).length;
+
+  static String _dateKey(DateTime dt) {
+    final y = dt.year.toString().padLeft(4, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  /// 生成不重复的系统通知 id（Android 要求为正 int）。
+  int _nextNotificationId() {
+    _notificationSeq = (_notificationSeq + 1) & 0xff;
+    final base = DateTime.now().millisecondsSinceEpoch % 0x7fffffff;
+    return (base + _notificationSeq) % 0x7fffffff;
   }
 
   Future<void> saveAccount(Account account) async {

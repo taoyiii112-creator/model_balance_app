@@ -1,13 +1,14 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../models/app_notification.dart';
 import '../models/balance.dart';
 import '../models/usage_record.dart';
 
 /// 本地 SQLite 存储：Token 用量记录 + 余额快照，表结构与桌面版一致。
 class StorageService {
   static const String _dbName = 'model_balance.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   Database? _db;
 
@@ -53,6 +54,17 @@ class StorageService {
         created_at TEXT NOT NULL
       )
     ''');
+    await db.execute('''
+      CREATE TABLE notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        dedupe_key TEXT UNIQUE,
+        read INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -71,6 +83,99 @@ class StorageService {
         'WHERE prompt_tokens > 0 AND prompt_cache_miss_tokens = 0',
       );
     }
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL,
+          dedupe_key TEXT UNIQUE,
+          read INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
+  }
+
+  // ---------- 消息中心 ----------
+
+  /// 写入一条消息；[dedupeKey] 重复时忽略并返回 0。
+  Future<int> addNotification(AppNotification notification) async {
+    final db = await _database;
+    return db.insert(
+      'notifications',
+      notification.toDbMap(),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  /// 指定去重键是否已存在。
+  Future<bool> notificationExists(String dedupeKey) async {
+    final db = await _database;
+    final rows = await db.query(
+      'notifications',
+      columns: <String>['id'],
+      where: 'dedupe_key = ?',
+      whereArgs: <Object?>[dedupeKey],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// 按时间倒序返回最近 [limit] 条消息。
+  Future<List<AppNotification>> listNotifications({int limit = 200}) async {
+    final db = await _database;
+    final rows = await db.query(
+      'notifications',
+      orderBy: 'created_at DESC, id DESC',
+      limit: limit,
+    );
+    return rows.map(AppNotification.fromDbMap).toList();
+  }
+
+  Future<int> unreadNotificationCount() async {
+    final db = await _database;
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM notifications WHERE read = 0',
+    );
+    return (rows.first['c'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<int> markNotificationRead(int id) async {
+    final db = await _database;
+    return db.update(
+      'notifications',
+      <String, Object?>{'read': 1},
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  Future<int> markAllNotificationsRead() async {
+    final db = await _database;
+    return db.update('notifications', <String, Object?>{'read': 1});
+  }
+
+  Future<int> deleteNotification(int id) async {
+    final db = await _database;
+    return db.delete(
+      'notifications',
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  /// 清理超过 [keepDays] 的旧消息，避免消息中心无限增长。
+  Future<int> pruneNotifications({int keepDays = 90}) async {
+    final db = await _database;
+    final cutoff =
+        DateTime.now().subtract(Duration(days: keepDays)).toIso8601String();
+    return db.delete(
+      'notifications',
+      where: 'created_at < ?',
+      whereArgs: <Object?>[cutoff],
+    );
   }
 
   Future<int> addUsageRecord(UsageRecord record) async {
