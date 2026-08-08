@@ -5,6 +5,14 @@ allprojects {
     }
 }
 
+// 强制插件子项目使用与主项目一致的 compileSdk（部分插件写死旧版本）
+subprojects {
+    afterEvaluate {
+        extensions.findByType(com.android.build.api.dsl.LibraryExtension::class.java)
+            ?.let { it.compileSdk = 36 }
+    }
+}
+
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")

@@ -8,6 +8,7 @@
 
 # 当前状态
 
+- 2026-08-08：v0.2.8 新增「导入 Codex 用量」——从桌面端 codex-usage --export 的 JSON（粘贴或选文件）导入，按 key 去重，柱状图/扇形图即时显示真实用量；file_picker 9.2.3 + 子项目 compileSdk 统一 36。
 - 2026-08-08：v0.2.7 已发布（多线程分块下载加速）；余额查询 / 用量图表 / 余额趋势 / 应用内更新齐全
 - `flutter analyze` 零问题；`flutter test` 25 个测试通过
 - 正式签名 keystore 已配置并用于 Release 打包
@@ -36,6 +37,7 @@
 
 # 下一步计划
 
+0. 局域网一键同步桌面端 Codex 用量（桌面 web 提供接口，手机端拉取）
 1. 低余额告警
 2. Token 用量自动采集（中转渠道用量接口）
 3. 测试补强：下载逻辑 mock 单测、弹窗互斥测试、ListView.builder

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -28,11 +31,130 @@ class UsageScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _showImportSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.content_paste_go),
+              title: const Text('粘贴 JSON'),
+              subtitle: const Text('从电脑复制的 codex_usage.json 内容'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pasteJson(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_open),
+              title: const Text('选择文件'),
+              subtitle: const Text('从手机文件中选择 codex_usage.json'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickFile(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pasteJson(BuildContext context) async {
+    final controller = TextEditingController();
+    final content = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('粘贴 Codex 用量 JSON'),
+        content: TextField(
+          controller: controller,
+          maxLines: 10,
+          decoration: const InputDecoration(
+            hintText: '粘贴 codex_usage.json 的完整内容',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('导入'),
+          ),
+        ],
+      ),
+    );
+    if (content != null && content.isNotEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+      await _runImport(context, content);
+    }
+  }
+
+  Future<void> _pickFile(BuildContext context) async {
+    final picked = await FilePicker.platform.pickFiles(type: FileType.any);
+    final path = picked?.files.single.path;
+    if (path == null) {
+      return;
+    }
+    try {
+      final content = await File(path).readAsString();
+      if (!context.mounted) {
+        return;
+      }
+      await _runImport(context, content);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('读取文件失败：$e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _runImport(BuildContext context, String content) async {
+    try {
+      final result =
+          await context.read<BalanceState>().importCodexUsage(content);
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '导入完成：新增 ${result.imported} 条，跳过重复 ${result.skipped} 条',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败：$e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<BalanceState>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Token 用量')),
+      appBar: AppBar(
+        title: const Text('Token 用量'),
+        actions: <Widget>[
+          IconButton(
+            onPressed: () => _showImportSheet(context),
+            tooltip: '导入用量',
+            icon: const Icon(Icons.file_download_outlined),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context),
         icon: const Icon(Icons.add),

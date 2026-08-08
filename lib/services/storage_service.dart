@@ -101,6 +101,20 @@ class StorageService {
     );
   }
 
+  /// 返回已入库的 codex 记录 note（用于导入去重）。
+  Future<Set<String>> listCodexKeys() async {
+    final db = await _database;
+    final rows = await db.query(
+      'usage_records',
+      columns: <String>['note'],
+      where: "note LIKE 'codex:%'",
+    );
+    return rows
+        .map((r) => (r['note'] as String?) ?? '')
+        .where((n) => n.isNotEmpty)
+        .toSet();
+  }
+
   Future<List<UsageRecord>> listUsageRecords({
     String? account,
     DateTime? since,

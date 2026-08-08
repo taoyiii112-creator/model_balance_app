@@ -11,6 +11,7 @@ import '../models/usage_record.dart';
 import '../services/balance_service.dart';
 import '../services/secure_config_store.dart';
 import '../services/storage_service.dart';
+import '../services/usage_import_service.dart';
 
 /// 全局业务状态：账户、余额结果、用量记录。
 class BalanceState extends ChangeNotifier {
@@ -186,6 +187,16 @@ class BalanceState extends ChangeNotifier {
     usageRecords = await storage.listUsageRecords();
     usageTotals = UsageTotals.sum(usageRecords);
     notifyListeners();
+  }
+
+  /// 导入桌面端导出的 Codex 用量 JSON（增量去重）。
+  Future<CodexImportResult> importCodexUsage(String content) async {
+    final result =
+        await UsageImportService(storage: storage).importCodex(content);
+    usageRecords = await storage.listUsageRecords();
+    usageTotals = UsageTotals.sum(usageRecords);
+    notifyListeners();
+    return result;
   }
 
   /// 按币种汇总可用余额（不跨币种混算）。
