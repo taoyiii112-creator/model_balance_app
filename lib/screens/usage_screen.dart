@@ -75,10 +75,11 @@ class UsageScreen extends StatelessWidget {
   Future<void> _lanSync(BuildContext context) async {
     final state = context.read<BalanceState>();
     final savedToken = await state.configStore.loadLanSyncToken();
+    final savedIp = await state.configStore.loadLanSyncIp();
     if (!context.mounted) {
       return;
     }
-    final ipController = TextEditingController();
+    final ipController = TextEditingController(text: savedIp ?? '');
     final tokenController = TextEditingController(text: savedToken ?? '');
     final input = await showDialog<String>(
       context: context,
@@ -121,7 +122,11 @@ class UsageScreen extends StatelessWidget {
             onPressed: () {
               final ip = ipController.text.trim();
               final token = tokenController.text.trim();
-              if (ip.isEmpty || token.isEmpty) {
+              final error = LanSyncService.validateInput(ip, token);
+              if (error != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(error)),
+                );
                 return;
               }
               Navigator.of(dialogContext).pop('$ip\u0000$token');
@@ -137,16 +142,17 @@ class UsageScreen extends StatelessWidget {
     final parts = input.split('\u0000');
     final ip = parts[0];
     final token = parts[1];
+    await state.configStore.saveLanSyncIp(ip);
+    await state.configStore.saveLanSyncToken(token);
+    if (!context.mounted) {
+      return;
+    }
     try {
       final result = await context.read<BalanceState>().lanSyncCodex(
             ip,
             LanSyncService.defaultPort,
             token,
           );
-      if (!context.mounted) {
-        return;
-      }
-      await state.configStore.saveLanSyncToken(token);
       if (!context.mounted) {
         return;
       }

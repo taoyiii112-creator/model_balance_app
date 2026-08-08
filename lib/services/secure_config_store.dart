@@ -11,6 +11,7 @@ class SecureConfigStore {
 
   static const String _accountsKey = 'accounts';
   static const String _lanSyncTokenKey = 'lan_sync_token';
+  static const String _lanSyncIpKey = 'lan_sync_ip';
 
   final FlutterSecureStorage _storage;
 
@@ -42,5 +43,13 @@ class SecureConfigStore {
 
   Future<void> saveLanSyncToken(String token) async {
     await _storage.write(key: _lanSyncTokenKey, value: token);
+  }
+
+  Future<String?> loadLanSyncIp() async {
+    return _storage.read(key: _lanSyncIpKey);
+  }
+
+  Future<void> saveLanSyncIp(String ip) async {
+    await _storage.write(key: _lanSyncIpKey, value: ip);
   }
 }

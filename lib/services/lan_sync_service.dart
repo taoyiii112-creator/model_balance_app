@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -25,6 +26,26 @@ class LanSyncService {
 
   static String buildUrl(String host, int port) {
     return 'http://$host:$port/api/codex-usage';
+  }
+
+  /// 校验局域网同步输入；返回 null 表示通过，否则返回错误提示。
+  static String? validateInput(String ip, String token) {
+    final trimmedIp = ip.trim();
+    if (trimmedIp.isEmpty) {
+      return '请填写电脑局域网 IP';
+    }
+    final address = InternetAddress.tryParse(trimmedIp);
+    if (address == null || address.type != InternetAddressType.IPv4) {
+      return 'IP 格式不正确，请填写如 192.168.1.100';
+    }
+    if (token.trim().isEmpty) {
+      return '请填写同步令牌';
+    }
+    final trimmedToken = token.trim();
+    if (!RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(trimmedToken)) {
+      return '令牌格式不正确（应为 32 位十六进制）';
+    }
+    return null;
   }
 
   Future<CodexImportResult> fetchAndImport(
