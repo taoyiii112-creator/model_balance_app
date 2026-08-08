@@ -1,7 +1,7 @@
 name: model_balance_app
 description: 模型余额手机 App - 实时查看 AI 模型 API 账户余额与 Token 用量。
 publish_to: 'none'
-version: 0.2.10+12
+version: 1.0.0+13
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
