@@ -8,6 +8,7 @@
 
 # 当前状态
 
+- 2026-08-09：更新源改为 GitHub 加速代理——默认走 `gh-proxy.com`（检查与下载地址均改写为代理，代理失败自动回退 GitHub 直连）；仍支持设置页自定义更新源。analyze 零问题、40 测试通过。
 - 2026-08-09：手机端 v1.0.0 已发布（GitHub Release，用户授权；正式签名 APK + SHA256）——版本号 0.2.10+12 → 1.0.0+13，包含系统通知与消息中心 + 局域网同步记忆优化；与桌面端 v1.0.0 同期发布。
 - 2026-08-09：局域网同步记忆优化——同步弹窗预填上次保存的 IP + 令牌（IP 之前只存令牌、IP 每次重填）；点击「同步」先本地校验（IPv4 格式 + 32 位十六进制令牌），校验通过才保存 IP 与令牌并执行同步，避免错误输入被保存。analyze 零问题、37 测试通过（新增 validateInput 3 用例）。
 - 2026-08-09：新增系统通知功能——flutter_local_notifications 22.3.0 系统通知（Android 13+ POST_NOTIFICATIONS 运行时授权、iOS 权限申请；Android 工程开启 core library desugaring）+ 应用内消息中心（SQLite notifications 表 v3，90 天自动清理）；低余额提醒阈值可配置（settings.json alert_threshold，默认 5），刷新时按账户按天去重写入消息并弹系统通知；发现新版本也写消息；首页铃铛角标显示未读，点系统通知直达消息页。analyze 零问题、34 测试通过、debug APK 构建通过。

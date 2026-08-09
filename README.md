@@ -101,8 +101,9 @@ test/
 4. 用户打开 App 会自动检测到新版本并提示更新；也可在「设置 → 版本更新」手动检查。
 
 更新源默认为 GitHub Releases API（见 `lib/services/update_service.dart` 的
-`updateSourceUrl`），可在「设置 → 更新源地址」修改；也可换成自建服务器返回
-`{"version","url","size","notes","sha256"}` 结构的 version.json。
+`updateSourceUrl`），默认经 `gh-proxy.com` 加速（检查与下载地址均改写为代理，
+代理不可用时自动回退 GitHub 直连）；可在「设置 → 更新源地址」修改，也可换成
+自建服务器返回 `{"version","url","size","notes","sha256"}` 结构的 version.json。
 
 ## 构建源配置（镜像）
 

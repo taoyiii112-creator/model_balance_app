@@ -108,4 +108,37 @@ void main() {
       await dir.delete(recursive: true);
     });
   });
+
+  group('UpdateService 加速代理更新源', () {
+    test('默认更新源走 gh-proxy.com 加速', () {
+      expect(
+        UpdateService.defaultUpdateSourceUrl,
+        startsWith('https://gh-proxy.com/'),
+      );
+      expect(
+        UpdateService.fallbackUpdateSourceUrl,
+        startsWith('https://api.github.com/'),
+      );
+    });
+
+    test('proxyAssetUrl 改写 GitHub 下载地址', () {
+      const githubUrl =
+          'https://github.com/taoyiii112-creator/model_balance_app/'
+          'releases/download/v1.0.0/app-release.apk';
+      final proxied = UpdateService.proxyAssetUrl(githubUrl);
+      expect(proxied, startsWith('https://gh-proxy.com/'));
+      expect(proxied, contains(githubUrl));
+
+      const objectsUrl = 'https://objects.githubusercontent.com/x/y.apk';
+      expect(
+        UpdateService.proxyAssetUrl(objectsUrl),
+        startsWith('https://gh-proxy.com/'),
+      );
+    });
+
+    test('proxyAssetUrl 不改写非 GitHub 地址', () {
+      const other = 'https://example.com/app-release.apk';
+      expect(UpdateService.proxyAssetUrl(other), other);
+    });
+  });
 }

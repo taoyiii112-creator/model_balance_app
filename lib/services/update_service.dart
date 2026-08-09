@@ -43,9 +43,16 @@ class UpdateService {
 
   static final UpdateService instance = UpdateService._();
 
-  /// 默认更新源：GitHub Releases API。返回 JSON 含 tag_name / body / assets[].apk。
+  /// 默认更新源：GitHub Releases API（经 gh-proxy.com 加速，国内访问更快）。
+  /// 返回 JSON 含 tag_name / body / assets[].apk；可在设置中改回直连或自建源。
   static const String defaultUpdateSourceUrl =
+      'https://gh-proxy.com/https://api.github.com/repos/taoyiii112-creator/model_balance_app/releases/latest';
+
+  /// GitHub 直连源（加速代理不可用时的回退）。
+  static const String fallbackUpdateSourceUrl =
       'https://api.github.com/repos/taoyiii112-creator/model_balance_app/releases/latest';
+
+  static const String _proxyPrefix = 'https://gh-proxy.com/';
 
   String _updateSourceUrl = defaultUpdateSourceUrl;
 
@@ -180,6 +187,15 @@ class UpdateService {
     return null;
   }
 
+  /// 代理模式下把 GitHub 下载地址改写为代理地址；其他地址原样返回。
+  static String proxyAssetUrl(String url) {
+    if (url.startsWith('https://github.com/') ||
+        url.startsWith('https://objects.githubusercontent.com/')) {
+      return '$_proxyPrefix$url';
+    }
+    return url;
+  }
+
   /// 版本号比较（主.次.补丁）：返回 a < b ? -1 : a > b ? 1 : 0。
   static int compareVersions(String a, String b) {
     final pa = _parts(a);
@@ -204,16 +220,21 @@ class UpdateService {
   /// 查询最新版本；仓库还没有 Release 时返回 null。
   Future<AppUpdateInfo?> checkForUpdate() async {
     await loadUpdateSource();
-    final http.Response resp;
+    final proxied = _updateSourceUrl.startsWith(_proxyPrefix);
+    http.Response resp;
     try {
-      resp = await http.get(
-        Uri.parse(_updateSourceUrl),
-        headers: const <String, String>{
-          'Accept': 'application/vnd.github+json',
-        },
-      ).timeout(const Duration(seconds: 15));
+      resp = await _fetchUpdateInfo(_updateSourceUrl);
     } on Exception catch (e) {
-      throw UpdateException('检查更新失败: $e');
+      if (proxied) {
+        // 加速代理不可用时回退 GitHub 直连。
+        try {
+          resp = await _fetchUpdateInfo(fallbackUpdateSourceUrl);
+        } on Exception {
+          throw UpdateException('检查更新失败: $e');
+        }
+      } else {
+        throw UpdateException('检查更新失败: $e');
+      }
     }
     if (resp.statusCode == 404) {
       return null;
@@ -232,15 +253,34 @@ class UpdateService {
     if (info == null) {
       return null;
     }
+    if (proxied) {
+      info = AppUpdateInfo(
+        version: info.version,
+        downloadUrl: proxyAssetUrl(info.downloadUrl),
+        notes: info.notes,
+        sizeBytes: info.sizeBytes,
+        sha256: info.sha256,
+      );
+    }
     // 若 Release 附带 <apk>.sha256 资产，拉取摘要用于下载后校验。
     final shaAssetUrl = findAssetUrl(decoded, '.sha256');
     if (shaAssetUrl != null) {
-      final expected = await _fetchSha256(shaAssetUrl);
+      final expected =
+          await _fetchSha256(proxied ? proxyAssetUrl(shaAssetUrl) : shaAssetUrl);
       if (expected != null && expected.isNotEmpty) {
         info = info.copyWith(sha256: expected);
       }
     }
     return info;
+  }
+
+  static Future<http.Response> _fetchUpdateInfo(String url) {
+    return http.get(
+      Uri.parse(url),
+      headers: const <String, String>{
+        'Accept': 'application/vnd.github+json',
+      },
+    ).timeout(const Duration(seconds: 15));
   }
 
   /// 下载 APK 到应用私有目录，返回本地路径；onProgress 回调 0~1。
