@@ -3,6 +3,7 @@
 ## 开发规范
 - 本项目（Flutter）开发必须使用 `software-development` + `flutter-development` 技能：每轮开发前先读取对应 SKILL.md，按其流程执行（分析 → 开发 → flutter analyze / flutter test 验收 → 质量检查），不依赖记忆、不跳步。
 - **上传 GitHub 前必须按对应技能质量检查清单核对（flutter analyze / flutter test 通过）；不合规一律打回重做，不得 push。**
+- 每轮开发收尾必须核对文档：除更新 memory / todo / summary 外，核对 README 中涉及本轮的章节（版本号 / 功能 / 测试数等），并在输出中声明"已核对 README，无过时内容"；文档整理必须全量核对 README / memory / todo / summary / AGENTS 与 overview.md，不得只改部分文件。
 
 ## 版本发布
 - 发布 GitHub Release 的唯一入口是 `gh-release-publish` 技能：发布前必须逐项执行其"发布前检查清单"并先获得用户（小张）明确授权（展示版本号、更新内容、发布包与大小、目标仓库，确认后才执行）。

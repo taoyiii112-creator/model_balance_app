@@ -2,6 +2,14 @@
 
 ## 日期：2026-08-09
 
+完成：文档一致性修复——README「当前状态」测试数由 34 更正为 42，test/ 目录结构补全 lan_sync_service_test.dart 与 usage_import_service_test.dart；AGENTS.md 增加"每轮收尾核对 README / 文档整理全量核对"要求。
+
+影响：README 与 memory / 实际测试状态一致。
+
+备注：——
+
+## 日期：2026-08-09
+
 完成：修复手机端导入/局域网同步的 Codex 用量时间差 8 小时——桌面端导出的 created_at 带时区（+08:00），手机端 DateTime.tryParse 后按 UTC 存库，显示比本地早 8 小时（手动记录为本地时间不受影响）。修复：导入时 `.toLocal()` 转本地；UsageRecord.fromDbMap 读取时统一 `.toLocal()`，历史已存的 UTC 数据无需迁移即可纠正；日统计分组也同步修正。analyze 零问题、42 测试通过（新增 2 项时区用例）。
 影响：导入/同步的 Codex 用量时间与本地一致，不再差 8 小时。
 备注：修复将在下一个手机端版本发布后生效。

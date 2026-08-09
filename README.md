@@ -51,6 +51,8 @@ test/
 ├── balance_state_test.dart   # 状态层测试（按币种汇总 / 阈值 / 低余额去重）
 ├── app_notification_test.dart # 消息模型落库往返测试
 ├── formats_test.dart         # 格式化工具测试
+├── lan_sync_service_test.dart  # 局域网同步服务测试
+├── usage_import_service_test.dart # 用量导入 / 时区测试
 └── widget_test.dart          # 首页冒烟测试
 ```
 
@@ -63,7 +65,7 @@ test/
 ## 当前状态
 
 - 最新版本：**v1.1.0**（更新源加速代理，正式签名 APK + SHA256 校验文件）
-- `flutter analyze` 零问题；`flutter test` 34 个测试全部通过
+- `flutter analyze` 零问题；`flutter test` 42 个测试全部通过
 - APK 产物：`build/app/outputs/flutter-apk/app-release.apk`（约 50.4MB，正式签名）
 - 开发环境：Flutter 3.44.8 / Dart 3.12.2 / Android SDK 36.1.0，构建走中国镜像
 
