@@ -71,6 +71,34 @@ void main() {
     expect(storage.added.single.note, 'codex:s1:2026-08-02T12:55:23+08:00');
   });
 
+  test('parseCodexJson 带时区时间转本地（不差 8 小时）', () {
+    final records = UsageImportService.parseCodexJson(sampleJson);
+    final first = records.first;
+    // 源时间 2026-08-02T12:51:19+08:00：解析后应为本地时间且不带 Z。
+    expect(first.createdAt.isUtc, isFalse);
+    expect(first.createdAt.toIso8601String(), '2026-08-02T12:51:19.535');
+    expect(first.createdAt.hour, 12);
+  });
+
+  test('UsageRecord.fromDbMap 旧 UTC 数据读取转本地', () {
+    // 模拟历史库中误存的 UTC 字符串（+08:00 的 11:30 存成了 03:30Z）。
+    final restored = UsageRecord.fromDbMap(<String, Object?>{
+      'id': 1,
+      'account': 'codex',
+      'model': '游戏制作',
+      'prompt_tokens': 100,
+      'prompt_cache_hit_tokens': 0,
+      'prompt_cache_miss_tokens': 100,
+      'completion_tokens': 50,
+      'total_tokens': 150,
+      'cost': 0.1,
+      'note': 'codex:old',
+      'created_at': '2026-08-02T03:30:00.000Z',
+    });
+    expect(restored.createdAt.isUtc, isFalse);
+    expect(restored.createdAt.toIso8601String(), '2026-08-02T11:30:00.000');
+  });
+
   test('非法 JSON 抛异常', () {
     expect(
       () => UsageImportService.parseCodexJson('not json'),

@@ -52,7 +52,8 @@ class UsageImportService {
           promptCacheMissTokens: miss,
           completionTokens: output,
           note: 'codex:$key',
-          createdAt: DateTime.tryParse(createdRaw) ?? DateTime.now(),
+          // 桌面端导出带时区（+08:00 等），统一转本地时间，避免显示差 8 小时。
+          createdAt: (DateTime.tryParse(createdRaw) ?? DateTime.now()).toLocal(),
         ),
       );
     }

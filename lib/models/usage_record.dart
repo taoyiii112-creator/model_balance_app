@@ -57,7 +57,8 @@ class UsageRecord {
       completionTokens: (map['completion_tokens'] as int?) ?? 0,
       cost: (map['cost'] as num?)?.toDouble(),
       note: (map['note'] as String?) ?? '',
-      createdAt: DateTime.parse(map['created_at'] as String),
+      // 历史数据可能存过 UTC（带 Z），读取时统一转本地时间。
+      createdAt: DateTime.parse(map['created_at'] as String).toLocal(),
     );
   }
 }
