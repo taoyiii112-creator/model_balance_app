@@ -152,7 +152,8 @@ flutter build apk    # 打 Android 安装包
 
 ## 下一步计划
 
-- Token 用量自动采集（中转渠道用量接口，DeepSeek 官方无公开用量接口）
+- 已实现：Token 用量自动采集（桌面端 codex-usage 提取 + 手机端导入 / 局域网同步）
+- 中转渠道用量自动拉取（one-api/new-api 用量接口，接入中转渠道时再做）
 - 与桌面版数据同步（可选，需后端）
 - iOS 构建验证（需 macOS 环境）
 
