@@ -66,7 +66,7 @@ test/
 
 - 最新版本：**v1.1.0**（更新源加速代理，正式签名 APK + SHA256 校验文件）
 - `flutter analyze` 零问题；`flutter test` 42 个测试全部通过
-- APK 产物：`build/app/outputs/flutter-apk/app-release.apk`（约 50.4MB，正式签名）
+- APK 产物：`build/app/outputs/flutter-apk/app-release.apk`（约 51.1MB，正式签名）
 - 开发环境：Flutter 3.44.8 / Dart 3.12.2 / Android SDK 36.1.0，构建走中国镜像
 
 ## 版本历史
@@ -84,8 +84,8 @@ test/
 | v0.2.8 | 导入 Codex 用量 + 局域网一键同步（桌面 lan-sync 服务 → 手机端拉取，去重入库） |
 | v0.2.9 | 修复更新下载进度超过 100% 的显示问题（重试字节不重复计数，进度封顶 100%） |
 | v0.2.10 | 修复更新下载卡在 100% 不弹安装（分块流 30 秒超时自动重试、连接及时关闭、进度 100% 仅在完成后显示） |
-| v1.1.0 | 更新源默认走 gh-proxy.com 加速（检查与下载均走代理，失败自动回退 GitHub 直连） |
 | v1.0.0 | 大版本：系统通知与消息中心（低余额/新版本弹系统通知，消息页查看，低余额阈值可调）；局域网同步 IP+令牌校验通过后保存并预填 |
+| v1.1.0 | 更新源默认走 gh-proxy.com 加速（检查与下载均走代理，失败自动回退 GitHub 直连） |
 
 ## 正式签名说明
 
@@ -143,7 +143,8 @@ flutter build apk    # 打 Android 安装包
    - `openai_compat`：填中转渠道 Key、`base_url`（如
      `https://your-relay.example.com`）与 quota 换算分母（one-api 默认 500000）。
 3. 回到「余额」页，下拉或点刷新即可实时查询。
-4. 「用量」页可手动记录 Token 使用情况。
+4. 「用量」页可手动记录 Token 使用情况，也可导入桌面端导出的 Codex 用量 JSON，
+   或通过「局域网同步」直接从电脑一键拉取最新用量。
 
 ## 安全说明
 
